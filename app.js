@@ -115,11 +115,11 @@ async function loadFamily() {
   const welcomeName = $("welcomeName");
   if (welcomeName) welcomeName.textContent = displayName;
 
-  const avatar = $("profileButton");
-  if (avatar) avatar.textContent = displayName.trim().charAt(0).toUpperCase();
-  const inviteCode = data.families?.invite_code || "";
-  const inviteNode = $("familyInviteCode");
-  if (inviteNode) inviteNode.textContent = inviteCode || "Indisponible";
+  const avatar = $("profileAvatar");
+  if (avatar) {
+    avatar.textContent = displayName.trim().charAt(0).toUpperCase();
+    avatar.className = "avatar avatar-yann";
+  }
   return data;
 }
 
@@ -268,22 +268,6 @@ async function signOut() {
 
 $("signOutButton").addEventListener("click", signOut);
 $("setupSignOut").addEventListener("click", signOut);
-$("copyInviteCode").addEventListener("click", async () => {
-  const code = $("familyInviteCode").textContent.trim();
-  if (!code || code === "Chargement…" || code === "Indisponible") return;
-  const invitationUrl = new URL(window.location.href);
-  invitationUrl.searchParams.set("invite", code);
-  invitationUrl.hash = "";
-  try {
-    await navigator.clipboard.writeText(invitationUrl.toString());
-    const button = $("copyInviteCode");
-    button.textContent = "Lien copié !";
-    setTimeout(() => { button.textContent = "Copier le lien"; }, 1800);
-  } catch {
-    message(authMessage, "Copie impossible sur cet appareil. Vous pouvez copier le lien depuis la barre d’adresse.", true);
-  }
-});
-
 // Au démarrage, restaure la session éventuellement déjà présente.
 const { data: sessionData } = await supabase.auth.getSession();
 currentUser = sessionData.session?.user || null;

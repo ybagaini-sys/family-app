@@ -73,7 +73,7 @@
           <div class="brand-subtitle">La vie de famille, bien organisée</div>
         </div>
       </div>
-      <div class="topbar-actions"><span class="app-version" aria-label="Version de l’application">v1.13.5</span><button class="refresh-button" id="refreshAppButton" type="button">Actualiser</button><button class="avatar avatar-yann" id="profileButton" aria-label="Profil actuellement sélectionné">Y</button><button class="logout-button" id="signOutButton" type="button">Sortir</button></div>
+      <div class="topbar-actions"><span class="app-version" aria-label="Version de l’application">v1.13.6</span><button class="refresh-button" id="refreshAppButton" type="button">Actualiser</button><span class="avatar avatar-yann" id="profileAvatar" aria-label="Compte connecté">?</span><button class="logout-button" id="signOutButton" type="button">Sortir</button></div>
     </header>
 
     <main id="mainContent">
@@ -86,16 +86,6 @@
           </div>
         </div>
 
-        <div class="family-strip" aria-label="Membres de la famille">
-          <button class="member selected" data-member="Yann"><span class="member-avatar avatar-yann">Y</span><span>Yann</span></button>
-          <button class="member" data-member="Delphine"><span class="member-avatar avatar-delphine">D</span><span>Delphine</span></button>
-          <button class="member" data-member="Olivia"><span class="member-avatar avatar-olivia">O</span><span>Olivia</span></button>
-          <button class="member" data-member="Amélie"><span class="member-avatar avatar-amelie">A</span><span>Amélie</span></button>
-        </div>
-        <div class="invite-panel">
-          <div><span>Code d'invitation du foyer</span><strong id="familyInviteCode">Chargement…</strong></div>
-          <button type="button" id="copyInviteCode">Copier le lien</button>
-        </div>
         <section class="push-panel" aria-labelledby="pushTitle">
           <div class="push-copy">
             <strong id="pushTitle">Notifications familiales</strong>
@@ -118,7 +108,8 @@
           <button class="summary-card tasks-card" data-go="tasks">
             <span class="card-icon">✓</span>
             <span class="summary-number" id="tasksSummaryCount">0</span>
-            <span class="summary-label">Tâches à faire</span>
+            <span class="nav-unread hidden" data-unread-badge="tasks" aria-label="Nouvelles tâches non consultées"></span>
+            <span class="summary-label">Tâches au total</span>
             <span class="card-link">Voir les tâches <span>→</span></span>
           </button>
         </div>
@@ -191,10 +182,10 @@
 
     <nav class="bottom-nav" aria-label="Navigation principale">
       <button class="nav-item active" data-view="home"><span class="nav-icon">⌂</span><span>Accueil</span></button>
-      <button class="nav-item" data-view="shopping"><span class="nav-icon">🛒</span><span>Courses</span></button>
-      <button class="nav-item" data-view="meals"><span class="nav-icon">♨</span><span>Repas</span></button>
-      <button class="nav-item" data-view="calendar"><span class="nav-icon">▦</span><span>Agenda</span></button>
-      <button class="nav-item" data-view="tasks"><span class="nav-icon">✓</span><span>Tâches</span></button>
+      <button class="nav-item" data-view="shopping"><span class="nav-icon">🛒</span><span>Courses</span><b class="nav-unread hidden" data-unread-badge="shopping"></b></button>
+      <button class="nav-item" data-view="meals"><span class="nav-icon">♨</span><span>Repas</span><b class="nav-unread hidden" data-unread-badge="meals"></b></button>
+      <button class="nav-item" data-view="calendar"><span class="nav-icon">▦</span><span>Agenda</span><b class="nav-unread hidden" data-unread-badge="calendar"></b></button>
+      <button class="nav-item" data-view="tasks"><span class="nav-icon">✓</span><span>Tâches</span><b class="nav-unread hidden" data-unread-badge="tasks"></b></button>
     </nav>
   </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>

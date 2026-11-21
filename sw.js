@@ -3,7 +3,7 @@
 // Cette version permet au navigateur de supprimer l'ancien cache et d'activer
 // immédiatement le nouveau service worker.
 
-const CACHE_NAME = "shell-v1.13.5-task-count-notification";
+const CACHE_NAME = "shell-v1.13.6-central-unread-clean-profile";
 const APP_SHELL = [
   "./",
   "./index.html",

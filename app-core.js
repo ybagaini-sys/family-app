@@ -1,11 +1,4 @@
-const members = {
-  Yann: {initial:"Y", cls:"avatar-yann"},
-  Delphine: {initial:"D", cls:"avatar-delphine"},
-  Olivia: {initial:"O", cls:"avatar-olivia"},
-  Amélie: {initial:"A", cls:"avatar-amelie"}
-};
-
-let currentMember = "Yann";
+// Le membre actif est déterminé exclusivement par le compte Supabase connecté.
 const views = ["home","shopping","meals","calendar","tasks"];
 const STORAGE_KEY = "family-app-local-v1";
 let localData = { shopping: [], tasks: [] };
@@ -14,8 +7,7 @@ try {
   if (saved && Array.isArray(saved.shopping) && Array.isArray(saved.tasks)) localData = saved;
 } catch (error) { console.warn("Données locales illisibles", error); }
 
-// Les courses sont partagées via Supabase. Les tâches restent locales jusqu'à
-// leur raccordement dans une prochaine étape.
+// Les courses, les tâches et les repas sont partagés via Supabase.
 let shoppingItems = [];
 let shoppingListId = null;
 let shoppingFamilyId = null;
@@ -42,19 +34,6 @@ function navigate(view) {
 }
 document.querySelectorAll("[data-view]").forEach(button => button.addEventListener("click", () => navigate(button.dataset.view)));
 document.querySelectorAll("[data-go]").forEach(button => button.addEventListener("click", () => navigate(button.dataset.go)));
-function selectMember(name) {
-  if (!members[name]) return;
-  currentMember = name;
-  document.getElementById("welcomeName").textContent = name;
-  const profileButton = document.getElementById("profileButton");
-  profileButton.textContent = members[name].initial;
-  profileButton.className = `avatar ${members[name].cls}`;
-  document.querySelectorAll(".member").forEach(button => button.classList.toggle("selected", button.dataset.member === name));
-  showToast(`Profil sélectionné : ${name}`);
-}
-document.querySelectorAll(".member").forEach(button => button.addEventListener("click", () => selectMember(button.dataset.member)));
-document.getElementById("profileButton").addEventListener("click", () => showToast(`Profil actif : ${currentMember}`));
-
 // Actualisation manuelle : vérifie le service worker, puis recharge depuis le réseau.
 const refreshButton = document.getElementById("refreshAppButton");
 if (refreshButton) {
@@ -87,6 +66,87 @@ function makeDeleteButton(label, handler) {
 }
 function getFamilyBridge() {
   return window.familyAppSupabase || null;
+}
+
+// Nouveautés centralisées : chaque membre dispose de son propre état de lecture.
+const unreadTypeByView = { shopping: "shopping_item", meals: "meal_entry", calendar: "calendar_event", tasks: "task" };
+let familyNotificationChannel = null;
+let familyNotificationPoll = null;
+let familyNotificationFamilyId = null;
+let familyNotificationRefreshBusy = false;
+
+async function refreshFamilyUnreadCounts() {
+  const bridge = getFamilyBridge();
+  const userId = bridge?.getCurrentUser?.()?.id;
+  if (!bridge?.client || !userId) return;
+  if (familyNotificationRefreshBusy) return;
+  familyNotificationRefreshBusy = true;
+  try {
+    const { data, error } = await bridge.client.from("family_notifications")
+      .select("entity_type, entity_id").eq("recipient_user_id", userId).is("read_at", null);
+    if (error) throw error;
+    const unreadEntities = { shopping: new Set(), meals: new Set(), calendar: new Set(), tasks: new Set() };
+    (data || []).forEach(row => {
+      const key = ({ shopping_item: "shopping", meal_entry: "meals", calendar_event: "calendar", task: "tasks" })[row.entity_type];
+      if (key) unreadEntities[key].add(String(row.entity_id));
+    });
+    const counts = Object.fromEntries(Object.entries(unreadEntities).map(([key, ids]) => [key, ids.size]));
+    Object.entries(counts).forEach(([key, count]) => {
+      document.querySelectorAll(`[data-unread-badge="${key}"]`).forEach(badge => {
+        badge.textContent = count > 99 ? "99+" : String(count);
+        badge.classList.toggle("hidden", count === 0);
+      });
+    });
+  } catch (error) {
+    console.warn("Compteurs de nouveautés indisponibles :", error);
+  } finally { familyNotificationRefreshBusy = false; }
+}
+
+async function markFamilyNotificationsRead(view) {
+  const type = unreadTypeByView[view];
+  const bridge = getFamilyBridge();
+  const userId = bridge?.getCurrentUser?.()?.id;
+  if (!type || !bridge?.client || !userId) return;
+  try {
+    const { error } = await bridge.client.from("family_notifications")
+      .update({ read_at: new Date().toISOString() })
+      .eq("recipient_user_id", userId).eq("entity_type", type).is("read_at", null);
+    if (error) throw error;
+    await refreshFamilyUnreadCounts();
+  } catch (error) { console.warn("Lecture des nouveautés impossible :", error); }
+}
+
+async function recordFamilyChange(familyId, entityType, entityId, action, title, message) {
+  const bridge = getFamilyBridge();
+  const user = bridge?.getCurrentUser?.();
+  if (!bridge?.client || !familyId || !user?.id) return;
+  try {
+    const { data: members, error: membersError } = await bridge.client.from("family_members")
+      .select("user_id").eq("family_id", familyId);
+    if (membersError) throw membersError;
+    const rows = (members || []).filter(member => member.user_id !== user.id).map(member => ({
+      family_id: familyId, actor_user_id: user.id, recipient_user_id: member.user_id,
+      entity_type: entityType, entity_id: String(entityId), action, title, message: message || null
+    }));
+    if (!rows.length) return;
+    const { error } = await bridge.client.from("family_notifications").insert(rows);
+    if (error) throw error;
+    await refreshFamilyUnreadCounts();
+  } catch (error) { console.warn("Enregistrement de la nouveauté impossible :", error); }
+}
+
+async function initializeFamilyNotifications(familyId) {
+  const bridge = getFamilyBridge();
+  if (!bridge?.client || !familyId) return;
+  if (familyNotificationFamilyId === familyId) { await refreshFamilyUnreadCounts(); return; }
+  familyNotificationFamilyId = familyId;
+  if (familyNotificationChannel) await bridge.client.removeChannel(familyNotificationChannel);
+  if (familyNotificationPoll) clearInterval(familyNotificationPoll);
+  familyNotificationChannel = bridge.client.channel(`family-notifications-${familyId}`)
+    .on("postgres_changes", { event: "*", schema: "public", table: "family_notifications", filter: `family_id=eq.${familyId}` }, refreshFamilyUnreadCounts)
+    .subscribe();
+  familyNotificationPoll = setInterval(refreshFamilyUnreadCounts, 15000);
+  await refreshFamilyUnreadCounts();
 }
 
 // Envoi des notifications familiales. L'échec push ne doit jamais annuler
@@ -251,6 +311,8 @@ function renderShopping() {
         .from("shopping_items").update({ is_completed: checkbox.checked }).eq("id", item.id);
       checkbox.disabled = false;
       if (error) { showToast("Modification impossible"); console.error(error); return; }
+      await recordFamilyChange(shoppingFamilyId, "shopping_item", item.id, "updated", "Article modifié", `${item.name} : ${checkbox.checked ? "acheté" : "à acheter"}`);
+      await notifyFamily("Liste de courses modifiée", `${item.name} : ${checkbox.checked ? "acheté" : "à acheter"}`, "?view=shopping");
       await loadShoppingFromSupabase();
     });
     const custom = document.createElement("span");
@@ -261,6 +323,8 @@ function renderShopping() {
     row.append(checkbox, custom, text, makeDeleteButton(item.name, async () => {
       const { error } = await getFamilyBridge().client.from("shopping_items").delete().eq("id", item.id);
       if (error) { showToast("Suppression impossible"); console.error(error); return; }
+      await recordFamilyChange(shoppingFamilyId, "shopping_item", item.id, "deleted", "Article supprimé", item.name);
+      await notifyFamily("Article supprimé", item.name, "?view=shopping");
       await loadShoppingFromSupabase();
       showToast("Article supprimé");
     }));
@@ -285,12 +349,14 @@ document.getElementById("shoppingForm").addEventListener("submit", async event =
   if (!bridge || !shoppingListId) { showToast("La liste familiale n'est pas encore prête"); return; }
   const button = document.querySelector("#shoppingForm button[type=submit]");
   button.disabled = true;
-  const { error } = await bridge.client.from("shopping_items").insert({
+  const { data: addedItem, error } = await bridge.client.from("shopping_items").insert({
     list_id: shoppingListId, name: value, is_completed: false, added_by: bridge.getCurrentUser()?.id
-  });
+  }).select("id").single();
   button.disabled = false;
   if (error) { console.error(error); showToast("Ajout impossible : vérifiez la connexion"); return; }
   input.value = "";
+  if (addedItem?.id) await recordFamilyChange(shoppingFamilyId, "shopping_item", addedItem.id, "created", "Nouvel article", value);
+  await notifyFamily("Nouvel article dans les courses", value, "?view=shopping");
   await loadShoppingFromSupabase();
   showToast("Article ajouté à la liste familiale");
 });
@@ -430,6 +496,7 @@ function renderTasks() {
       }).eq("id", task.id);
       if (error) { check.checked = !done; showToast("Modification impossible"); console.error(error); }
       else {
+        await recordFamilyChange(taskFamilyId, "task", task.id, "updated", done ? "Tâche terminée" : "Tâche remise à faire", task.title);
         await notifyFamily(
           done ? "Tâche terminée" : "Tâche remise à faire",
           `« ${task.title} » a été ${done ? "terminée" : "remise à faire"}.`
@@ -449,13 +516,14 @@ function renderTasks() {
       if (!confirm(`Supprimer la tâche « ${task.title} » ?`)) return;
       const { error } = await getFamilyBridge().client.from("tasks").delete().eq("id", task.id);
       if (error) { showToast("Suppression impossible"); console.error(error); return; }
+      await recordFamilyChange(taskFamilyId, "task", task.id, "deleted", "Tâche supprimée", task.title);
       await notifyFamily("Tâche supprimée", `La tâche « ${task.title} » a été supprimée.`);
       await loadFamilyTasks(); showToast("Tâche supprimée");
     }));
     list.append(row);
   });
   document.getElementById("tasksEmpty").classList.toggle("hidden", familyTasks.length > 0);
-  document.getElementById("tasksSummaryCount").textContent = familyTasks.filter(task => task.status !== "done").length;
+  document.getElementById("tasksSummaryCount").textContent = familyTasks.length;
 }
 
 document.getElementById("taskForm").addEventListener("submit", async event => {
@@ -486,6 +554,7 @@ document.getElementById("taskForm").addEventListener("submit", async event => {
         throw assignError;
       }
     }
+    await recordFamilyChange(taskFamilyId, "task", task.id, "created", "Nouvelle tâche", title);
     const assigneeNames = selected
       .map(userId => familyMembers.find(member => member.user_id === userId)?.display_name)
       .filter(Boolean);
@@ -509,6 +578,7 @@ window.addEventListener("family-app-family-ready", event => {
   initializeShoppingSync(event.detail?.familyId);
   initializeTaskSync(event.detail?.familyId);
   initializeMealSync(event.detail?.familyId);
+  initializeFamilyNotifications(event.detail?.familyId);
 });
 
 // Planning des repas partagé via Supabase.
@@ -638,6 +708,8 @@ async function editMeal(entry, mealDate, mealType) {
   else query = bridge.client.from("meal_entries").insert(payload);
   const { error } = await query;
   if (error) { console.error(error); showToast("Enregistrement du repas impossible"); return; }
+  const mealId = entry?.id || (await bridge.client.from("meal_entries").select("id").eq("family_id", mealFamilyId).eq("meal_date", mealDate).eq("meal_type", mealType).maybeSingle()).data?.id;
+  if (mealId) await recordFamilyChange(mealFamilyId, "meal_entry", mealId, entry ? "updated" : "created", entry ? "Repas modifié" : "Nouveau repas", clean);
   await loadMealEntries(); showToast("Planning des repas actualisé");
 }
 async function setMealNotPlanned(entry, mealDate, mealType) {
@@ -654,12 +726,17 @@ async function setMealNotPlanned(entry, mealDate, mealType) {
     error = result.error;
   }
   if (error) { console.error(error); showToast("Modification impossible"); return; }
+  const mealId = entry?.id || (await bridge.client.from("meal_entries").select("id").eq("family_id", mealFamilyId).eq("meal_date", mealDate).eq("meal_type", mealType).maybeSingle()).data?.id;
+  if (mealId) await recordFamilyChange(mealFamilyId, "meal_entry", mealId, "updated", "Planning repas modifié", "Aucun repas prévu");
+  await notifyFamily("Planning repas modifié", "Aucun repas prévu", "?view=meals");
   await loadMealEntries(); showToast("Repas marqué comme non prévu");
 }
 async function deleteMeal(entry) {
   if (!confirm("Supprimer ce repas du planning ?")) return;
   const { error } = await getFamilyBridge().client.from("meal_entries").delete().eq("id", entry.id);
   if (error) { console.error(error); showToast("Suppression impossible"); return; }
+  await recordFamilyChange(mealFamilyId, "meal_entry", entry.id, "deleted", "Repas supprimé", entry.title);
+  await notifyFamily("Repas supprimé", entry.title, "?view=meals");
   await loadMealEntries(); showToast("Repas supprimé du planning");
 }
 async function toggleMealAbsence(entry, userId, absent) {
@@ -672,8 +749,10 @@ async function toggleMealAbsence(entry, userId, absent) {
     result = await bridge.client.from("meal_attendance").delete().eq("meal_entry_id", entry.id).eq("user_id", buttonUser);
   }
   if (result.error) { console.error(result.error); showToast("Modification de présence impossible"); return; }
-  await loadMealEntries();
   const member = mealMembers.find(item => item.user_id === userId);
+  await recordFamilyChange(mealFamilyId, "meal_entry", entry.id, "updated", "Présence au repas modifiée", `${member?.display_name || "Un membre"} : ${absent ? "absent" : "présent"}`);
+  await notifyFamily("Présence au repas modifiée", `${member?.display_name || "Un membre"} : ${absent ? "absent" : "présent"}`, "?view=meals");
+  await loadMealEntries();
   showToast(`${member?.display_name || "Membre"} : ${absent ? "absent" : "présent"}`);
 }
 async function initializeMealSync(familyId) {

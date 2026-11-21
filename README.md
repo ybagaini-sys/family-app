@@ -80,3 +80,16 @@ L'accès aux données doit rester protégé par les politiques RLS de Supabase.
 - Migration unique des articles locaux vers la liste Supabase lorsqu'elle est vide.
 - Les tâches, repas et calendrier restent à connecter dans les prochaines versions.
 - Cache du service worker : `shell-v1.10`.
+
+
+## Version 1.13.6 – Nouveautés familiales
+
+- Le compte connecté détermine désormais le membre actif : aucun sélecteur de prénom n'est proposé.
+- Le panneau du code/lien d'invitation est retiré de l'accueil. Le lien d'invitation reçu reste accepté lors de la connexion ou de l'inscription.
+- Les nouveautés non lues sont suivies individuellement dans `family_notifications`.
+- Les rubriques Courses, Repas et Tâches affichent un badge rouge avec le nombre d'éléments distincts non consultés. Le badge est effacé lorsque le membre ouvre la rubrique correspondante.
+- Le compteur de la carte Tâches affiche le nombre total de tâches, terminées ou non.
+- Les créations, modifications et suppressions de tâches, articles de courses et repas alimentent le suivi central.
+- Le calendrier de cette version reste un aperçu non connecté : les rendez-vous ne peuvent donc pas encore produire de nouveautés.
+
+La table `family_notifications` doit avoir été créée au préalable avec le script SQL central fourni dans la conversation. Aucune nouvelle migration SQL n'est requise pour cette version.
