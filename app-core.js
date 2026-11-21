@@ -898,16 +898,34 @@ let calendarEvents = [];
 let calendarChannel = null;
 let calendarPoll = null;
 let calendarLoading = false;
+let calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let selectedCalendarDate = null;
+
+function calendarDateKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+}
+function eventDateKey(event) {
+  const date = new Date(event.starts_at);
+  return calendarDateKey(date);
+}
 
 function renderCalendarEvents() {
   const target = document.getElementById("calendarEventsList");
   if (!target) return;
   target.replaceChildren();
-  const upcoming = calendarEvents.filter(event => new Date(event.starts_at).getTime() >= Date.now() - 86400000);
+  const upcoming = selectedCalendarDate
+    ? calendarEvents.filter(event => eventDateKey(event) === selectedCalendarDate)
+    : calendarEvents.filter(event => new Date(event.starts_at).getTime() >= Date.now() - 86400000);
+  const heading = document.getElementById("calendarEventsHeading");
+  if (heading) heading.textContent = selectedCalendarDate
+    ? `Événements du ${new Date(`${selectedCalendarDate}T12:00:00`).toLocaleDateString("fr-CH", { day:"numeric", month:"long", year:"numeric" })}`
+    : "Prochains événements";
   if (!upcoming.length) {
     const empty = document.createElement("div");
     empty.className = "empty-state";
-    empty.innerHTML = '<div>🗓️</div><strong>Aucun événement à venir</strong><p>Ajoutez les activités et rendez-vous de la famille.</p>';
+    empty.innerHTML = selectedCalendarDate
+      ? '<div>🗓️</div><strong>Aucun rendez-vous ce jour</strong><p>Sélectionnez un autre jour ou ajoutez un événement.</p>'
+      : '<div>🗓️</div><strong>Aucun événement à venir</strong><p>Ajoutez les activités et rendez-vous de la famille.</p>';
     target.append(empty);
     return;
   }
@@ -950,6 +968,7 @@ async function loadCalendarEvents() {
     .eq("family_id", calendarFamilyId).order("starts_at", { ascending: true });
   if (error) throw error;
   calendarEvents = data || [];
+  renderCalendar();
   renderCalendarEvents();
 }
 
@@ -1036,13 +1055,65 @@ document.getElementById("addEvent").addEventListener("click", async () => {
 
 function renderCalendar() {
   const target = document.getElementById("calendarDays");
-  const today = new Date(); const year = today.getFullYear(), month = today.getMonth();
-  const firstDay = new Date(year, month, 1); const offset = (firstDay.getDay() + 6) % 7; const count = new Date(year, month + 1, 0).getDate();
-  document.getElementById("monthName").textContent = today.toLocaleDateString("fr-CH", { month:"long", year:"numeric" });
+  if (!target) return;
+  const year = calendarMonth.getFullYear(), month = calendarMonth.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const offset = (firstDay.getDay() + 6) % 7;
+  const count = new Date(year, month + 1, 0).getDate();
+  const todayKey = calendarDateKey(new Date());
+  document.getElementById("monthName").textContent = calendarMonth.toLocaleDateString("fr-CH", { month:"long", year:"numeric" });
   target.replaceChildren();
-  for (let i=0; i<offset; i++) { const b = document.createElement("button"); b.className = "muted-day"; b.textContent = new Date(year, month, 0).getDate() - offset + i + 1; b.disabled = true; target.append(b); }
-  for (let day=1; day<=count; day++) { const b = document.createElement("button"); b.textContent = day; if (day === today.getDate()) b.className = "today"; b.disabled = true; target.append(b); }
+  for (let i = 0; i < offset; i++) {
+    const b = document.createElement("button");
+    b.className = "muted-day";
+    b.textContent = new Date(year, month, 0).getDate() - offset + i + 1;
+    b.disabled = true;
+    target.append(b);
+  }
+  for (let day = 1; day <= count; day++) {
+    const date = new Date(year, month, day);
+    const key = calendarDateKey(date);
+    const hasEvents = calendarEvents.some(event => eventDateKey(event) === key);
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "calendar-day";
+    if (key === todayKey) b.classList.add("today");
+    if (key === selectedCalendarDate) b.classList.add("selected-day");
+    if (hasEvents) b.classList.add("has-events");
+    b.setAttribute("aria-label", `${date.toLocaleDateString("fr-CH", { day:"numeric", month:"long" })}${hasEvents ? ", rendez-vous prévu" : ""}`);
+    b.setAttribute("aria-pressed", key === selectedCalendarDate ? "true" : "false");
+    const number = document.createElement("span");
+    number.className = "calendar-day-number";
+    number.textContent = String(day);
+    b.append(number);
+    if (hasEvents) {
+      const marker = document.createElement("span");
+      marker.className = "calendar-day-marker";
+      marker.setAttribute("aria-hidden", "true");
+      b.append(marker);
+    }
+    b.addEventListener("click", () => {
+      selectedCalendarDate = key;
+      renderCalendar();
+      renderCalendarEvents();
+    });
+    target.append(b);
+  }
 }
+
+const calendarMonthButtons = document.querySelectorAll(".calendar-month button");
+calendarMonthButtons[0]?.addEventListener("click", () => {
+  calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1);
+  selectedCalendarDate = null;
+  renderCalendar();
+  renderCalendarEvents();
+});
+calendarMonthButtons[1]?.addEventListener("click", () => {
+  calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1);
+  selectedCalendarDate = null;
+  renderCalendar();
+  renderCalendarEvents();
+});
 
 renderCalendar(); renderShopping(); renderTasks();
 renderTaskAssigneePicker("Connectez-vous pour charger les membres du foyer.");
