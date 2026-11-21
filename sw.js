@@ -3,7 +3,7 @@
 // Cette version permet au navigateur de supprimer l'ancien cache et d'activer
 // immédiatement le nouveau service worker.
 
-const CACHE_NAME = "shell-v1.13.0-push-enrollment";
+const CACHE_NAME = "shell-v1.13.1-shareable-invite";
 const APP_SHELL = [
   "./",
   "./index.html",

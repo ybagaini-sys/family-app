@@ -66,6 +66,24 @@ function showAuthentication() {
   appShell.classList.add("hidden");
   authForms.classList.remove("hidden");
   familySetup.classList.add("hidden");
+  const inviteCode = getInvitationCodeFromUrl();
+  if (inviteCode) {
+    $("authIntro").textContent = "Vous avez reçu une invitation familiale. Connectez-vous ou créez votre compte pour rejoindre le foyer.";
+  }
+}
+
+function getInvitationCodeFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return (params.get("invite") || "").trim();
+}
+
+function applyInvitationLink() {
+  const inviteCode = getInvitationCodeFromUrl();
+  if (!inviteCode) return;
+  const field = $("inviteCode");
+  if (field) field.value = inviteCode;
+  setFamilyMode("join");
+  message(familyMessage, "Lien d’invitation détecté. Vous pouvez rejoindre ce foyer.");
 }
 
 function showFamilySetup() {
@@ -73,6 +91,7 @@ function showFamilySetup() {
   appShell.classList.add("hidden");
   authForms.classList.add("hidden");
   familySetup.classList.remove("hidden");
+  applyInvitationLink();
 }
 
 function showApplication() {
@@ -252,13 +271,16 @@ $("setupSignOut").addEventListener("click", signOut);
 $("copyInviteCode").addEventListener("click", async () => {
   const code = $("familyInviteCode").textContent.trim();
   if (!code || code === "Chargement…" || code === "Indisponible") return;
+  const invitationUrl = new URL(window.location.href);
+  invitationUrl.searchParams.set("invite", code);
+  invitationUrl.hash = "";
   try {
-    await navigator.clipboard.writeText(code);
+    await navigator.clipboard.writeText(invitationUrl.toString());
     const button = $("copyInviteCode");
-    button.textContent = "Copié !";
-    setTimeout(() => { button.textContent = "Copier"; }, 1600);
+    button.textContent = "Lien copié !";
+    setTimeout(() => { button.textContent = "Copier le lien"; }, 1800);
   } catch {
-    message(authMessage, "Copie impossible sur cet appareil. Sélectionnez le code manuellement.", true);
+    message(authMessage, "Copie impossible sur cet appareil. Vous pouvez copier le lien depuis la barre d’adresse.", true);
   }
 });
 
