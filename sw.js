@@ -3,7 +3,7 @@
 // Cette version permet au navigateur de supprimer l'ancien cache et d'activer
 // immédiatement le nouveau service worker.
 
-const CACHE_NAME = "shell-v1.12.3-mobile-header";
+const CACHE_NAME = "shell-v1.12.4-crisp-header";
 const APP_SHELL = [
   "./",
   "./index.html",
