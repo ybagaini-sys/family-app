@@ -57,3 +57,6 @@ button:disabled{opacity:.6;pointer-events:none}
 .task-assignee-option input{accent-color:#4e8b72;width:16px;height:16px;margin:0}
 .task-add-panel>button{border:0;border-radius:12px;background:#4e8b72;color:#fff;padding:12px;font:inherit;font-size:12px;font-weight:800}
 .task-add-panel>button:disabled{opacity:.55}
+
+/* V1.11.1 — état visible du sélecteur de membres */
+.task-assignee-status{grid-column:1/-1;display:block;padding:8px 2px;font-size:11px;line-height:1.45;color:#7c8981}

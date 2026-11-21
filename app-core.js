@@ -278,6 +278,7 @@ let taskChannel = null;
 let taskPoll = null;
 let taskFamilyId = null;
 let taskLoading = false;
+let taskMembersLoaded = false;
 
 async function loadFamilyTasks() {
   const bridge = getFamilyBridge();
@@ -307,10 +308,19 @@ async function loadFamilyTasks() {
   renderTasks();
 }
 
-function renderTaskAssigneePicker() {
+function renderTaskAssigneePicker(messageText = "") {
   const target = document.getElementById("taskAssignees");
   if (!target) return;
   target.replaceChildren();
+  if (!familyMembers.length) {
+    const status = document.createElement("span");
+    status.className = "task-assignee-status";
+    status.textContent = messageText || (taskMembersLoaded
+      ? "Aucun membre trouvé dans ce foyer."
+      : "Chargement des membres du foyer…");
+    target.append(status);
+    return;
+  }
   familyMembers.forEach(member => {
     const label = document.createElement("label");
     label.className = "task-assignee-option";
@@ -333,6 +343,7 @@ async function initializeTaskSync(familyId) {
     return;
   }
   taskLoading = true;
+  renderTaskAssigneePicker("Chargement des membres du foyer…");
   try {
     if (taskChannel) { await bridge.client.removeChannel(taskChannel); taskChannel = null; }
     if (taskPoll) { clearInterval(taskPoll); taskPoll = null; }
@@ -344,6 +355,7 @@ async function initializeTaskSync(familyId) {
       .order("joined_at", { ascending: true });
     if (membersError) throw membersError;
     familyMembers = membersData || [];
+    taskMembersLoaded = true;
     renderTaskAssigneePicker();
     await loadFamilyTasks();
 
@@ -359,7 +371,10 @@ async function initializeTaskSync(familyId) {
     taskPoll = setInterval(() => loadFamilyTasks().catch(error => console.warn("Actualisation tâches:", error)), 12000);
   } catch (error) {
     console.error("Connexion des tâches à Supabase impossible:", error);
-    showToast("Tâches non synchronisées : vérifiez Supabase");
+    taskMembersLoaded = false;
+    familyMembers = [];
+    renderTaskAssigneePicker("Impossible de charger les membres. Vérifiez les droits Supabase puis actualisez.");
+    showToast("Chargement des membres impossible");
     taskFamilyId = null;
   } finally { taskLoading = false; }
 }
@@ -459,6 +474,7 @@ function renderCalendar() {
   for (let day=1; day<=count; day++) { const b = document.createElement("button"); b.textContent = day; if (day === 20) b.className = "today"; b.addEventListener("click", () => showToast(`Sélection du ${day} novembre (aperçu)`)); target.append(b); }
 }
 renderCalendar(); renderShopping(); renderTasks();
+renderTaskAssigneePicker("Connectez-vous pour charger les membres du foyer.");
 const today = new Date(); document.getElementById("todayLabel").textContent = today.toLocaleDateString("fr-CH",{weekday:"long",day:"numeric",month:"long"}).toUpperCase();
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   window.addEventListener("load", async () => { try { const registration = await navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" }); await registration.update(); }
