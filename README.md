@@ -93,3 +93,12 @@ L'accès aux données doit rester protégé par les politiques RLS de Supabase.
 - Le calendrier de cette version reste un aperçu non connecté : les rendez-vous ne peuvent donc pas encore produire de nouveautés.
 
 La table `family_notifications` doit avoir été créée au préalable avec le script SQL central fourni dans la conversation. Aucune nouvelle migration SQL n'est requise pour cette version.
+
+
+## V1.13.7 – Nouveautés familiales et agenda partagé
+- Pastilles rouges de nouveautés pour les rubriques Courses, Repas, Agenda et Tâches.
+- Chaque membre dispose de son propre état de lecture ; ouvrir une rubrique marque ses nouveautés comme consultées pour le compte connecté.
+- Les nouveautés sont enregistrées dans `family_notifications` (migration centrale déjà exécutée dans Supabase).
+- Agenda connecté à `calendar_events` : affichage des prochains événements, ajout, modification du titre et suppression, avec synchronisation et notifications familiales.
+- Les liens de notification ouvrent directement la rubrique correspondante.
+- Identité toujours liée au compte Supabase ; le sélecteur de profil reste supprimé.

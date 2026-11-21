@@ -186,3 +186,5 @@ button:disabled{opacity:.6;pointer-events:none}
 @media(max-width:390px){.push-panel{align-items:flex-start}.push-copy span{max-width:220px}#enablePushButton{padding:10px 13px}}
 
 .nav-unread{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:9px;background:#d92d35;color:#fff;font-size:9px;font-weight:800;line-height:1}.nav-unread.hidden{display:none!important}
+
+.calendar-events-list{display:grid;gap:10px;margin:14px 0 28px}.calendar-event-card{background:var(--surface,#fff);border:1px solid var(--line,#e8e8e8);border-radius:16px;padding:14px;display:grid;gap:7px}.calendar-event-card>strong{font-size:12px;color:var(--muted,#777);text-transform:capitalize}.calendar-event-title{font-weight:750;font-size:16px}.calendar-event-card p{margin:0;color:var(--muted,#777);font-size:13px}.calendar-event-actions{display:flex;align-items:center;gap:14px;margin-top:4px}

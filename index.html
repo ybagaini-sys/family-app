@@ -73,7 +73,7 @@
           <div class="brand-subtitle">La vie de famille, bien organisée</div>
         </div>
       </div>
-      <div class="topbar-actions"><span class="app-version" aria-label="Version de l’application">v1.13.6</span><button class="refresh-button" id="refreshAppButton" type="button">Actualiser</button><span class="avatar avatar-yann" id="profileAvatar" aria-label="Compte connecté">?</span><button class="logout-button" id="signOutButton" type="button">Sortir</button></div>
+      <div class="topbar-actions"><span class="app-version" aria-label="Version de l’application">v1.13.7</span><button class="refresh-button" id="refreshAppButton" type="button">Actualiser</button><span class="avatar avatar-yann" id="profileAvatar" aria-label="Compte connecté">?</span><button class="logout-button" id="signOutButton" type="button">Sortir</button></div>
     </header>
 
     <main id="mainContent">
@@ -162,8 +162,7 @@
         <div class="calendar-week"><span>LU</span><span>MA</span><span>ME</span><span>JE</span><span>VE</span><span>SA</span><span>DI</span></div>
         <div class="calendar-days" id="calendarDays"></div>
         <div class="section-heading spaced"><h2>Prochains événements</h2><button class="pill-button" id="addEvent">＋ Ajouter</button></div>
-        <div class="empty-state"><div>🗓️</div><strong>Votre agenda prendra vie ici</strong><p>Ajoutez les activités, rendez-vous et événements de la famille.</p></div>
-        <p class="demo-note">Calendrier de démonstration. Les événements partagés et les rappels seront connectés à Supabase.</p>
+        <div id="calendarEventsList" class="calendar-events-list"><div class="empty-state"><div>🗓️</div><strong>Chargement de l’agenda…</strong><p>Récupération des événements familiaux.</p></div></div>
       </section>
 
       <section class="view" id="view-tasks">

@@ -30,6 +30,8 @@ function navigate(view) {
   if (!views.includes(view)) return;
   document.querySelectorAll(".view").forEach(el => el.classList.toggle("active", el.id === `view-${view}`));
   document.querySelectorAll(".nav-item").forEach(el => el.classList.toggle("active", el.dataset.view === view));
+  // La consultation d’une rubrique marque ses nouveautés comme lues pour ce membre uniquement.
+  if (view !== "home") markFamilyNotificationsRead(view);
   window.scrollTo({top:0, behavior:"smooth"});
 }
 document.querySelectorAll("[data-view]").forEach(button => button.addEventListener("click", () => navigate(button.dataset.view)));
@@ -578,7 +580,10 @@ window.addEventListener("family-app-family-ready", event => {
   initializeShoppingSync(event.detail?.familyId);
   initializeTaskSync(event.detail?.familyId);
   initializeMealSync(event.detail?.familyId);
+  initializeCalendarSync(event.detail?.familyId);
   initializeFamilyNotifications(event.detail?.familyId);
+  const requestedView = new URLSearchParams(window.location.search).get("view");
+  if (views.includes(requestedView)) navigate(requestedView);
 });
 
 // Planning des repas partagé via Supabase.
@@ -887,13 +892,117 @@ if (enablePushButton) enablePushButton.addEventListener("click", enableFamilyPus
 window.addEventListener("family-app-family-ready", () => updatePushButtonState());
 window.addEventListener("load", () => updatePushButtonState());
 
-document.getElementById("addEvent").addEventListener("click", () => showToast("La création d'événements sera ajoutée dans le module Calendrier."));
-function renderCalendar() {
-  const target = document.getElementById("calendarDays"); const year = 2026, month = 10;
-  const firstDay = new Date(year, month, 1); const offset = (firstDay.getDay() + 6) % 7; const count = new Date(year, month + 1, 0).getDate(); target.innerHTML = "";
-  for (let i=0; i<offset; i++) { const b = document.createElement("button"); b.className = "muted-day"; b.textContent = new Date(year, month, 0).getDate() - offset + i + 1; b.disabled = true; target.append(b); }
-  for (let day=1; day<=count; day++) { const b = document.createElement("button"); b.textContent = day; if (day === 20) b.className = "today"; b.addEventListener("click", () => showToast(`Sélection du ${day} novembre (aperçu)`)); target.append(b); }
+// Agenda familial connecté à Supabase : les événements génèrent des nouveautés individuelles.
+let calendarFamilyId = null;
+let calendarEvents = [];
+let calendarChannel = null;
+let calendarPoll = null;
+let calendarLoading = false;
+
+function renderCalendarEvents() {
+  const target = document.getElementById("calendarEventsList");
+  if (!target) return;
+  target.replaceChildren();
+  const upcoming = calendarEvents.filter(event => new Date(event.starts_at).getTime() >= Date.now() - 86400000);
+  if (!upcoming.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    empty.innerHTML = '<div>🗓️</div><strong>Aucun événement à venir</strong><p>Ajoutez les activités et rendez-vous de la famille.</p>';
+    target.append(empty);
+    return;
+  }
+  upcoming.forEach(event => {
+    const card = document.createElement("article");
+    card.className = "calendar-event-card";
+    const date = document.createElement("strong");
+    date.textContent = new Date(event.starts_at).toLocaleString("fr-CH", { weekday:"short", day:"numeric", month:"short", hour: event.is_all_day ? undefined : "2-digit", minute: event.is_all_day ? undefined : "2-digit" });
+    const title = document.createElement("div"); title.className = "calendar-event-title"; title.textContent = event.title;
+    card.append(date, title);
+    if (event.description) { const desc = document.createElement("p"); desc.textContent = event.description; card.append(desc); }
+    const actions = document.createElement("div"); actions.className = "calendar-event-actions";
+    const edit = document.createElement("button"); edit.type = "button"; edit.className = "text-button"; edit.textContent = "Modifier";
+    edit.addEventListener("click", async () => {
+      const titleValue = prompt("Titre du rendez-vous", event.title);
+      if (titleValue === null) return;
+      const clean = titleValue.trim(); if (!clean) { showToast("Le titre ne peut pas être vide"); return; }
+      const { error } = await getFamilyBridge().client.from("calendar_events").update({ title: clean }).eq("id", event.id);
+      if (error) { console.error(error); showToast("Modification impossible"); return; }
+      await recordFamilyChange(calendarFamilyId, "calendar_event", event.id, "updated", "Rendez-vous modifié", clean);
+      await notifyFamily("Rendez-vous modifié", clean, "?view=calendar");
+      await loadCalendarEvents();
+    });
+    const del = makeDeleteButton(event.title, async () => {
+      if (!confirm(`Supprimer le rendez-vous « ${event.title} » ?`)) return;
+      const { error } = await getFamilyBridge().client.from("calendar_events").delete().eq("id", event.id);
+      if (error) { console.error(error); showToast("Suppression impossible"); return; }
+      await recordFamilyChange(calendarFamilyId, "calendar_event", event.id, "deleted", "Rendez-vous supprimé", event.title);
+      await notifyFamily("Rendez-vous supprimé", event.title, "?view=calendar");
+      await loadCalendarEvents();
+    });
+    actions.append(edit, del); card.append(actions); target.append(card);
+  });
 }
+
+async function loadCalendarEvents() {
+  const bridge = getFamilyBridge();
+  if (!bridge?.client || !calendarFamilyId) return;
+  const { data, error } = await bridge.client.from("calendar_events")
+    .select("id, family_id, title, description, starts_at, ends_at, is_all_day, created_by")
+    .eq("family_id", calendarFamilyId).order("starts_at", { ascending: true });
+  if (error) throw error;
+  calendarEvents = data || [];
+  renderCalendarEvents();
+}
+
+async function initializeCalendarSync(familyId) {
+  const bridge = getFamilyBridge();
+  if (!bridge?.client || !familyId || calendarLoading) return;
+  if (calendarFamilyId === familyId) { try { await loadCalendarEvents(); } catch (error) { console.warn("Agenda:", error); } return; }
+  calendarLoading = true;
+  try {
+    if (calendarChannel) await bridge.client.removeChannel(calendarChannel);
+    if (calendarPoll) clearInterval(calendarPoll);
+    calendarFamilyId = familyId;
+    await loadCalendarEvents();
+    calendarChannel = bridge.client.channel(`family-calendar-${familyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "calendar_events", filter: `family_id=eq.${familyId}` }, () => loadCalendarEvents().catch(error => console.warn("Realtime agenda:", error)))
+      .subscribe();
+    calendarPoll = setInterval(() => loadCalendarEvents().catch(error => console.warn("Actualisation agenda:", error)), 15000);
+  } catch (error) {
+    console.error("Initialisation agenda impossible:", error);
+    calendarFamilyId = null;
+    showToast("Agenda non synchronisé : vérifiez la connexion");
+  } finally { calendarLoading = false; }
+}
+
+document.getElementById("addEvent").addEventListener("click", async () => {
+  if (!calendarFamilyId) { showToast("L'agenda familial n'est pas encore prêt"); return; }
+  const title = prompt("Titre du rendez-vous");
+  if (title === null) return;
+  const clean = title.trim(); if (!clean) { showToast("Le titre ne peut pas être vide"); return; }
+  const initial = new Date(Date.now() + 3600000); initial.setMinutes(Math.ceil(initial.getMinutes()/15)*15, 0, 0);
+  const localValue = new Date(initial.getTime() - initial.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  const dateValue = prompt("Date et heure (AAAA-MM-JJTHH:MM)", localValue);
+  if (dateValue === null) return;
+  const startsAt = new Date(dateValue);
+  if (Number.isNaN(startsAt.getTime())) { showToast("Date ou heure invalide"); return; }
+  const { data, error } = await getFamilyBridge().client.from("calendar_events").insert({ family_id: calendarFamilyId, title: clean, starts_at: startsAt.toISOString(), created_by: getFamilyBridge().getCurrentUser()?.id }).select("id").single();
+  if (error) { console.error(error); showToast("Création du rendez-vous impossible"); return; }
+  await recordFamilyChange(calendarFamilyId, "calendar_event", data.id, "created", "Nouveau rendez-vous", clean);
+  await notifyFamily("Nouveau rendez-vous", clean, "?view=calendar");
+  await loadCalendarEvents(); showToast("Rendez-vous ajouté au calendrier");
+});
+
+function renderCalendar() {
+  const target = document.getElementById("calendarDays");
+  const today = new Date(); const year = today.getFullYear(), month = today.getMonth();
+  const firstDay = new Date(year, month, 1); const offset = (firstDay.getDay() + 6) % 7; const count = new Date(year, month + 1, 0).getDate();
+  document.getElementById("monthName").textContent = today.toLocaleDateString("fr-CH", { month:"long", year:"numeric" });
+  target.replaceChildren();
+  for (let i=0; i<offset; i++) { const b = document.createElement("button"); b.className = "muted-day"; b.textContent = new Date(year, month, 0).getDate() - offset + i + 1; b.disabled = true; target.append(b); }
+  for (let day=1; day<=count; day++) { const b = document.createElement("button"); b.textContent = day; if (day === today.getDate()) b.className = "today"; b.disabled = true; target.append(b); }
+}
+
 renderCalendar(); renderShopping(); renderTasks();
 renderTaskAssigneePicker("Connectez-vous pour charger les membres du foyer.");
 renderMealWeek();
