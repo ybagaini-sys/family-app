@@ -73,7 +73,7 @@
           <div class="brand-subtitle">La vie de famille, bien organisée</div>
         </div>
       </div>
-      <div class="topbar-actions"><span class="app-version" aria-label="Version de l’application">v1.13.7</span><button class="refresh-button" id="refreshAppButton" type="button">Actualiser</button><span class="avatar avatar-yann" id="profileAvatar" aria-label="Compte connecté">?</span><button class="logout-button" id="signOutButton" type="button">Sortir</button></div>
+      <div class="topbar-actions"><span class="app-version" aria-label="Version de l’application">v1.13.8</span><button class="refresh-button" id="refreshAppButton" type="button">Actualiser</button><span class="avatar avatar-yann" id="profileAvatar" aria-label="Compte connecté">?</span><button class="logout-button" id="signOutButton" type="button">Sortir</button></div>
     </header>
 
     <main id="mainContent">
@@ -178,6 +178,23 @@
         <p class="demo-note">Les tâches sont partagées et synchronisées avec les membres du foyer.</p>
       </section>
     </main>
+
+    <div class="event-editor-backdrop hidden" id="eventEditorBackdrop" role="presentation">
+      <form class="event-editor" id="eventEditorForm" role="dialog" aria-modal="true" aria-labelledby="eventEditorTitle">
+        <div class="event-editor-heading"><h2 id="eventEditorTitle">Nouveau rendez-vous</h2><p>Choisissez le jour et l’heure du rendez-vous.</p></div>
+        <label for="eventTitleInput">Nom du rendez-vous</label>
+        <input id="eventTitleInput" type="text" maxlength="180" placeholder="Ex. Entraînement de football" required>
+        <label for="eventDateInput">Date</label>
+        <input id="eventDateInput" type="date" required>
+        <label>Heure</label>
+        <div class="event-time-row">
+          <div><span class="event-time-caption">Heure</span><select id="eventHourInput" aria-label="Heure"></select></div>
+          <span class="event-time-separator">:</span>
+          <div><span class="event-time-caption">Minutes</span><select id="eventMinuteInput" aria-label="Minutes"><option value="00">00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option></select></div>
+        </div>
+        <div class="event-editor-actions"><button type="button" class="event-cancel" id="eventEditorCancel">Annuler</button><button type="submit" class="event-save" id="eventEditorSave">Enregistrer</button></div>
+      </form>
+    </div>
 
     <nav class="bottom-nav" aria-label="Navigation principale">
       <button class="nav-item active" data-view="home"><span class="nav-icon">⌂</span><span>Accueil</span></button>

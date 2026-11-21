@@ -3,7 +3,7 @@
 // Cette version permet au navigateur de supprimer l'ancien cache et d'activer
 // immédiatement le nouveau service worker.
 
-const CACHE_NAME = "shell-v1.13.7-family-unread-calendar";
+const CACHE_NAME = "shell-v1.13.8-calendar-date-time-picker";
 const APP_SHELL = [
   "./",
   "./index.html",

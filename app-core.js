@@ -922,13 +922,12 @@ function renderCalendarEvents() {
     const actions = document.createElement("div"); actions.className = "calendar-event-actions";
     const edit = document.createElement("button"); edit.type = "button"; edit.className = "text-button"; edit.textContent = "Modifier";
     edit.addEventListener("click", async () => {
-      const titleValue = prompt("Titre du rendez-vous", event.title);
-      if (titleValue === null) return;
-      const clean = titleValue.trim(); if (!clean) { showToast("Le titre ne peut pas être vide"); return; }
-      const { error } = await getFamilyBridge().client.from("calendar_events").update({ title: clean }).eq("id", event.id);
+      const values = await showEventEditor(event);
+      if (!values) return;
+      const { error } = await getFamilyBridge().client.from("calendar_events").update({ title: values.title, starts_at: values.startsAt.toISOString() }).eq("id", event.id);
       if (error) { console.error(error); showToast("Modification impossible"); return; }
-      await recordFamilyChange(calendarFamilyId, "calendar_event", event.id, "updated", "Rendez-vous modifié", clean);
-      await notifyFamily("Rendez-vous modifié", clean, "?view=calendar");
+      await recordFamilyChange(calendarFamilyId, "calendar_event", event.id, "updated", "Rendez-vous modifié", values.title);
+      await notifyFamily("Rendez-vous modifié", values.title, "?view=calendar");
       await loadCalendarEvents();
     });
     const del = makeDeleteButton(event.title, async () => {
@@ -975,21 +974,63 @@ async function initializeCalendarSync(familyId) {
   } finally { calendarLoading = false; }
 }
 
+// Éditeur de rendez-vous : calendrier natif pour le jour et choix par quart d'heure.
+const eventEditorBackdrop = document.getElementById("eventEditorBackdrop");
+const eventEditorForm = document.getElementById("eventEditorForm");
+const eventTitleInput = document.getElementById("eventTitleInput");
+const eventDateInput = document.getElementById("eventDateInput");
+const eventHourInput = document.getElementById("eventHourInput");
+const eventMinuteInput = document.getElementById("eventMinuteInput");
+const eventEditorTitle = document.getElementById("eventEditorTitle");
+let eventEditorResolve = null;
+
+for (let hour = 0; hour < 24; hour++) {
+  const option = document.createElement("option");
+  option.value = String(hour).padStart(2, "0");
+  option.textContent = option.value;
+  eventHourInput.append(option);
+}
+function localDateInputValue(date) {
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+}
+function showEventEditor(event = null) {
+  const initial = event ? new Date(event.starts_at) : new Date(Date.now() + 3600000);
+  if (!event) initial.setMinutes(Math.ceil(initial.getMinutes()/15)*15, 0, 0);
+  eventEditorTitle.textContent = event ? "Modifier le rendez-vous" : "Nouveau rendez-vous";
+  eventTitleInput.value = event?.title || "";
+  eventDateInput.value = localDateInputValue(initial);
+  eventHourInput.value = String(initial.getHours()).padStart(2, "0");
+  eventMinuteInput.value = String(Math.floor(initial.getMinutes()/15)*15).padStart(2, "0");
+  eventEditorBackdrop.classList.remove("hidden");
+  setTimeout(() => eventTitleInput.focus(), 80);
+  return new Promise(resolve => { eventEditorResolve = resolve; });
+}
+function closeEventEditor(result = null) {
+  eventEditorBackdrop.classList.add("hidden");
+  if (eventEditorResolve) eventEditorResolve(result);
+  eventEditorResolve = null;
+}
+document.getElementById("eventEditorCancel").addEventListener("click", () => closeEventEditor());
+eventEditorBackdrop.addEventListener("click", event => { if (event.target === eventEditorBackdrop) closeEventEditor(); });
+eventEditorForm.addEventListener("submit", event => {
+  event.preventDefault();
+  const title = eventTitleInput.value.trim();
+  if (!title) { showToast("Le titre du rendez-vous est nécessaire"); eventTitleInput.focus(); return; }
+  if (!eventDateInput.value) { showToast("Choisissez une date"); return; }
+  const [year, month, day] = eventDateInput.value.split("-").map(Number);
+  const startsAt = new Date(year, month - 1, day, Number(eventHourInput.value), Number(eventMinuteInput.value), 0, 0);
+  if (Number.isNaN(startsAt.getTime())) { showToast("Date ou heure invalide"); return; }
+  closeEventEditor({ title, startsAt });
+});
+
 document.getElementById("addEvent").addEventListener("click", async () => {
   if (!calendarFamilyId) { showToast("L'agenda familial n'est pas encore prêt"); return; }
-  const title = prompt("Titre du rendez-vous");
-  if (title === null) return;
-  const clean = title.trim(); if (!clean) { showToast("Le titre ne peut pas être vide"); return; }
-  const initial = new Date(Date.now() + 3600000); initial.setMinutes(Math.ceil(initial.getMinutes()/15)*15, 0, 0);
-  const localValue = new Date(initial.getTime() - initial.getTimezoneOffset()*60000).toISOString().slice(0,16);
-  const dateValue = prompt("Date et heure (AAAA-MM-JJTHH:MM)", localValue);
-  if (dateValue === null) return;
-  const startsAt = new Date(dateValue);
-  if (Number.isNaN(startsAt.getTime())) { showToast("Date ou heure invalide"); return; }
-  const { data, error } = await getFamilyBridge().client.from("calendar_events").insert({ family_id: calendarFamilyId, title: clean, starts_at: startsAt.toISOString(), created_by: getFamilyBridge().getCurrentUser()?.id }).select("id").single();
+  const values = await showEventEditor();
+  if (!values) return;
+  const { data, error } = await getFamilyBridge().client.from("calendar_events").insert({ family_id: calendarFamilyId, title: values.title, starts_at: values.startsAt.toISOString(), created_by: getFamilyBridge().getCurrentUser()?.id }).select("id").single();
   if (error) { console.error(error); showToast("Création du rendez-vous impossible"); return; }
-  await recordFamilyChange(calendarFamilyId, "calendar_event", data.id, "created", "Nouveau rendez-vous", clean);
-  await notifyFamily("Nouveau rendez-vous", clean, "?view=calendar");
+  await recordFamilyChange(calendarFamilyId, "calendar_event", data.id, "created", "Nouveau rendez-vous", values.title);
+  await notifyFamily("Nouveau rendez-vous", values.title, "?view=calendar");
   await loadCalendarEvents(); showToast("Rendez-vous ajouté au calendrier");
 });
 
