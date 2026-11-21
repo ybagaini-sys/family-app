@@ -3,7 +3,7 @@
 // Cette version permet au navigateur de supprimer l'ancien cache et d'activer
 // immédiatement le nouveau service worker.
 
-const CACHE_NAME = "shell-v1.13.3-notification-link";
+const CACHE_NAME = "shell-v1.13.4-canonical-notification-url";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -89,9 +89,22 @@ self.addEventListener("notificationclick", event => {
   event.notification.close();
   const rawTarget = event.notification.data && event.notification.data.url
     ? event.notification.data.url
-    : "./";
-  // GitHub Pages publie cette application sous /family-app/ et non à la racine du domaine.
-  const target = new URL(rawTarget, self.registration.scope).href;
+    : "https://ybagaini-sys.github.io/family-app/?view=tasks";
+
+  let targetUrl;
+  try {
+    targetUrl = new URL(rawTarget, "https://ybagaini-sys.github.io/family-app/");
+  } catch (_) {
+    targetUrl = new URL("https://ybagaini-sys.github.io/family-app/?view=tasks");
+  }
+
+  // GitHub Pages publie l'application sous /family-app/, jamais à la racine.
+  if (targetUrl.origin === "https://ybagaini-sys.github.io" &&
+      !targetUrl.pathname.startsWith("/family-app/")) {
+    targetUrl.pathname = "/family-app/" + targetUrl.pathname.replace(/^\/+/, "");
+  }
+  const target = targetUrl.href;
+
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
       for (const client of list) {

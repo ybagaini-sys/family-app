@@ -92,7 +92,14 @@ function getFamilyBridge() {
 // Envoi des notifications familiales. L'échec push ne doit jamais annuler
 // une opération déjà enregistrée dans Supabase.
 async function notifyFamily(title, body, url = null) {
-  const notificationUrl = new URL(url || "./?view=tasks", window.location.href).href;
+  // URL canonique GitHub Pages : l'application vit sous /family-app/, jamais à la racine.
+  const appBaseUrl = "https://ybagaini-sys.github.io/family-app/";
+  let notificationUrl = new URL(url || "?view=tasks", appBaseUrl);
+  if (notificationUrl.origin === "https://ybagaini-sys.github.io" &&
+      !notificationUrl.pathname.startsWith("/family-app/")) {
+    notificationUrl = new URL("/family-app/" + notificationUrl.pathname.replace(/^\/+/, ""), "https://ybagaini-sys.github.io");
+  }
+  notificationUrl = notificationUrl.href;
   const bridge = getFamilyBridge();
   if (!bridge?.client || !bridge.getCurrentUser?.()) return;
   try {
