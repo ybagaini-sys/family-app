@@ -174,3 +174,13 @@ button:disabled{opacity:.6;pointer-events:none}
   .topbar-actions { gap: 6px; }
   .refresh-button, .logout-button { padding: 8px 9px; font-size: 10px; }
 }
+
+
+/* V1.13 — panneau d'activation des notifications */
+.push-panel{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:18px 0;padding:16px 18px;background:#fff;border:1px solid var(--line,#e5ece8);border-radius:18px;box-shadow:0 5px 18px rgba(30,60,45,.035)}
+.push-copy{display:flex;flex-direction:column;gap:5px;min-width:0}
+.push-copy strong{font-size:15px;color:var(--ink,#20272b)}
+.push-copy span{font-size:13px;line-height:1.4;color:var(--muted,#818b91)}
+#enablePushButton{flex:0 0 auto;border:0;border-radius:999px;padding:11px 17px;background:#eaf3ee;color:#477d65;font-weight:700;font-size:14px}
+#enablePushButton:disabled{opacity:.7}
+@media(max-width:390px){.push-panel{align-items:flex-start}.push-copy span{max-width:220px}#enablePushButton{padding:10px 13px}}

@@ -661,6 +661,108 @@ async function initializeMealSync(familyId) {
 document.getElementById("mealPrevWeek").addEventListener("click", () => { mealWeekOffset--; loadMealEntries().catch(error => { console.error(error); showToast("Chargement de la semaine impossible"); }); });
 document.getElementById("mealNextWeek").addEventListener("click", () => { mealWeekOffset++; loadMealEntries().catch(error => { console.error(error); showToast("Chargement de la semaine impossible"); }); });
 
+
+// Notifications Web Push — inscription de l'appareil courant.
+const FAMILY_VAPID_PUBLIC_KEY = "BDR_ixuFwYFq5I1FOPomJ6KKfoKhVRKMZYcMDqJiviEgbEo_EEb7CtHcZgTXCpQeduazOyBAYoXzOHEVPKsZbkw";
+
+function pushBase64UrlToBytes(value) {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized + "=".repeat((4 - normalized.length % 4) % 4);
+  return Uint8Array.from(atob(padded), char => char.charCodeAt(0));
+}
+function setPushStatus(text) {
+  const target = document.getElementById("pushStatus");
+  if (target) target.textContent = text;
+}
+async function updatePushButtonState() {
+  const button = document.getElementById("enablePushButton");
+  if (!button) return;
+  const bridge = getFamilyBridge();
+  if (!bridge?.getCurrentUser?.()) {
+    button.disabled = true;
+    setPushStatus("Connectez-vous pour activer les notifications.");
+    return;
+  }
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+    button.disabled = true;
+    setPushStatus("Les notifications push ne sont pas prises en charge par ce navigateur.");
+    return;
+  }
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    if (subscription) {
+      button.textContent = "Activées";
+      button.disabled = true;
+      setPushStatus("Cet appareil est inscrit aux notifications familiales.");
+    } else if (Notification.permission === "denied") {
+      button.textContent = "Bloquées";
+      button.disabled = true;
+      setPushStatus("Les notifications sont bloquées dans les réglages de cet appareil.");
+    } else {
+      button.textContent = "Activer";
+      button.disabled = false;
+      setPushStatus("Activez les notifications sur cet appareil pour recevoir les nouvelles du foyer.");
+    }
+  } catch (error) {
+    console.warn("Vérification push impossible:", error);
+    button.disabled = false;
+  }
+}
+async function enableFamilyPush() {
+  const button = document.getElementById("enablePushButton");
+  const bridge = getFamilyBridge();
+  if (!bridge?.getCurrentUser?.()) { showToast("Connectez-vous d'abord"); return; }
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+    showToast("Notifications non prises en charge sur cet appareil"); return;
+  }
+  if (!window.matchMedia("(display-mode: standalone)").matches && !window.navigator.standalone) {
+    showToast("Ajoutez d'abord Family-app à l'écran d'accueil, puis ouvrez son icône"); return;
+  }
+  if (button) { button.disabled = true; button.textContent = "Activation…"; }
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") throw new Error("Autorisation de notification non accordée.");
+    const registration = await navigator.serviceWorker.ready;
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: pushBase64UrlToBytes(FAMILY_VAPID_PUBLIC_KEY)
+      });
+    }
+    const json = subscription.toJSON();
+    const user = bridge.getCurrentUser();
+    if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) throw new Error("Abonnement incomplet fourni par le navigateur.");
+    const record = {
+      user_id: user.id,
+      endpoint: json.endpoint,
+      p256dh: json.keys.p256dh,
+      auth_key: json.keys.auth,
+      device_label: `${navigator.platform || "Appareil"} · ${/iPad|iPhone|iPod/.test(navigator.userAgent) ? "Apple" : "Web"}`
+    };
+    const { data: existing, error: findError } = await bridge.client
+      .from("push_subscriptions").select("id").eq("endpoint", record.endpoint).maybeSingle();
+    if (findError) throw findError;
+    const result = existing
+      ? await bridge.client.from("push_subscriptions").update(record).eq("id", existing.id)
+      : await bridge.client.from("push_subscriptions").insert(record);
+    if (result.error) throw result.error;
+    showToast("Notifications activées sur cet appareil");
+    setPushStatus("Notifications activées sur cet appareil.");
+    if (button) { button.textContent = "Activées"; button.disabled = true; }
+  } catch (error) {
+    console.error("Activation des notifications impossible:", error);
+    showToast(error?.message || "Activation des notifications impossible");
+    setPushStatus(error?.message || "Activation impossible. Vérifiez les réglages de notifications.");
+    if (button) { button.textContent = "Réessayer"; button.disabled = false; }
+  }
+}
+const enablePushButton = document.getElementById("enablePushButton");
+if (enablePushButton) enablePushButton.addEventListener("click", enableFamilyPush);
+window.addEventListener("family-app-family-ready", () => updatePushButtonState());
+window.addEventListener("load", () => updatePushButtonState());
+
 document.getElementById("addEvent").addEventListener("click", () => showToast("La création d'événements sera ajoutée dans le module Calendrier."));
 function renderCalendar() {
   const target = document.getElementById("calendarDays"); const year = 2026, month = 10;
