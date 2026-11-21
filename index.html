@@ -174,8 +174,13 @@
         <div class="page-heading"><p class="eyebrow">CHACUN PARTICIPE</p><h1>Les tâches ✓</h1><p class="muted">Les petites choses qui facilitent le quotidien.</p></div>
         <div class="task-list" id="taskList"></div>
         <div class="empty-state" id="tasksEmpty"><div>✓</div><strong>Aucune tâche pour le moment</strong><p>Ajoutez une tâche pour commencer votre organisation familiale.</p></div>
-        <form class="add-form task-add-form" id="taskForm"><input id="taskInput" type="text" placeholder="Ajouter une tâche…" maxlength="100" aria-label="Nouvelle tâche"><button type="submit">Ajouter</button></form>
-        <p class="demo-note">Les tâches sont encore enregistrées sur cet appareil. Leur synchronisation familiale sera réalisée dans la prochaine étape.</p>
+        <form class="task-add-panel" id="taskForm">
+          <input id="taskInput" type="text" placeholder="Ajouter une tâche…" maxlength="180" aria-label="Nouvelle tâche" required>
+          <p class="task-assignee-title">Attribuer à (facultatif)</p>
+          <div class="task-assignees" id="taskAssignees" aria-label="Membres à qui attribuer la tâche"></div>
+          <button type="submit">＋ Ajouter la tâche</button>
+        </form>
+        <p class="demo-note">Les tâches sont partagées et synchronisées avec les membres du foyer.</p>
       </section>
     </main>
 

@@ -46,3 +46,14 @@ button:disabled{opacity:.6;pointer-events:none}
 .app-version{font-size:9px;color:#a0a8a3;letter-spacing:.2px;white-space:nowrap}
 .refresh-button{border:1px solid #e3e9e5;background:#fff;color:#527a66;border-radius:16px;padding:7px 9px;font:inherit;font-size:10px;font-weight:700;white-space:nowrap}
 .refresh-button:disabled{opacity:.65}
+
+
+/* FAMILY-APP V1.11 — attribution multiple des tâches */
+.task-add-panel{display:flex;flex-direction:column;gap:10px;margin-top:14px;padding:13px;background:#fff;border:1px solid var(--line);border-radius:16px}
+.task-add-panel>input{width:100%;min-width:0;border:1px solid var(--line);border-radius:12px;padding:12px;font:inherit;font-size:13px}
+.task-assignee-title{font-size:10px;font-weight:800;color:#7c8981;margin:2px 0 0}
+.task-assignees{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.task-assignee-option{display:flex;align-items:center;gap:7px;padding:8px 9px;background:#f6f8f6;border:1px solid #e8ede9;border-radius:10px;font-size:11px;color:#4e5b53}
+.task-assignee-option input{accent-color:#4e8b72;width:16px;height:16px;margin:0}
+.task-add-panel>button{border:0;border-radius:12px;background:#4e8b72;color:#fff;padding:12px;font:inherit;font-size:12px;font-weight:800}
+.task-add-panel>button:disabled{opacity:.55}
