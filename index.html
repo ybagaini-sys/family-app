@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#f7f8fa">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Family-app">
+  <meta name="description" content="L'organisation familiale, simplement.">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./icon-180.png">
+  <link rel="stylesheet" href="./styles.css">
+  <title>Family-app</title>
+</head>
+<body>
+
+  <section class="auth-screen" id="authScreen">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <div class="brand-mark">f</div>
+        <div><div class="brand-name">family<span>-app</span></div><div class="brand-subtitle">La vie de famille, bien organisée</div></div>
+      </div>
+      <div id="authForms">
+        <p class="eyebrow">VOTRE ESPACE FAMILIAL</p>
+        <h1 id="authTitle">Bienvenue</h1>
+        <p class="muted auth-intro" id="authIntro">Connectez-vous pour retrouver votre famille.</p>
+        <div class="auth-tabs">
+          <button type="button" class="auth-tab active" id="showLogin">Connexion</button>
+          <button type="button" class="auth-tab" id="showSignup">Créer un compte</button>
+        </div>
+        <form id="loginForm" class="auth-form">
+          <label>Adresse e-mail<input id="loginEmail" type="email" autocomplete="email" required placeholder="vous@exemple.ch"></label>
+          <label>Mot de passe<input id="loginPassword" type="password" autocomplete="current-password" required minlength="8" placeholder="8 caractères minimum"></label>
+          <button class="primary-wide" type="submit">Se connecter</button>
+        </form>
+        <form id="signupForm" class="auth-form hidden">
+          <label>Prénom<input id="signupName" type="text" autocomplete="given-name" required maxlength="40" placeholder="Votre prénom"></label>
+          <label>Adresse e-mail<input id="signupEmail" type="email" autocomplete="email" required placeholder="vous@exemple.ch"></label>
+          <label>Mot de passe<input id="signupPassword" type="password" autocomplete="new-password" required minlength="8" placeholder="8 caractères minimum"></label>
+          <button class="primary-wide" type="submit">Créer mon compte</button>
+        </form>
+        <p class="auth-message" id="authMessage" role="status" aria-live="polite"></p>
+      </div>
+      <div id="familySetup" class="hidden">
+        <p class="eyebrow">DERNIÈRE ÉTAPE</p>
+        <h1>Votre espace familial</h1>
+        <p class="muted auth-intro">Créez votre foyer ou rejoignez celui qui existe déjà.</p>
+        <div class="auth-tabs">
+          <button type="button" class="auth-tab active" id="createFamilyTab">Créer un foyer</button>
+          <button type="button" class="auth-tab" id="joinFamilyTab">Rejoindre</button>
+        </div>
+        <form id="createFamilyForm" class="auth-form">
+          <label>Nom du foyer<input id="familyName" type="text" required maxlength="80" value="Famille" placeholder="Ex. Famille Bagaïni"></label>
+          <button class="primary-wide" type="submit">Créer mon espace familial</button>
+        </form>
+        <form id="joinFamilyForm" class="auth-form hidden">
+          <label>Code d'invitation<input id="inviteCode" type="text" required autocomplete="off" placeholder="Code communiqué par un membre"></label>
+          <button class="primary-wide" type="submit">Rejoindre le foyer</button>
+        </form>
+        <p class="auth-message" id="familyMessage" role="status" aria-live="polite"></p>
+        <button type="button" class="text-button auth-back" id="setupSignOut">Se déconnecter</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="app-shell hidden" id="appShell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">f</div>
+        <div>
+          <div class="brand-name">family<span>-app</span></div>
+          <div class="brand-subtitle">La vie de famille, bien organisée</div>
+        </div>
+      </div>
+      <div class="topbar-actions"><span class="app-version" aria-label="Version de l’application">v1.10</span><button class="refresh-button" id="refreshAppButton" type="button">Actualiser</button><button class="avatar avatar-yann" id="profileButton" aria-label="Profil actuellement sélectionné">Y</button><button class="logout-button" id="signOutButton" type="button">Sortir</button></div>
+    </header>
+
+    <main id="mainContent">
+      <section class="view active" id="view-home">
+        <div class="welcome-row">
+          <div>
+            <p class="eyebrow" id="todayLabel">VOTRE ESPACE FAMILIAL</p>
+            <h1>Bonjour <span id="welcomeName">Yann</span> <span class="wave">☀️</span></h1>
+            <p class="muted">Voici ce qui se passe aujourd'hui.</p>
+          </div>
+        </div>
+
+        <div class="family-strip" aria-label="Membres de la famille">
+          <button class="member selected" data-member="Yann"><span class="member-avatar avatar-yann">Y</span><span>Yann</span></button>
+          <button class="member" data-member="Delphine"><span class="member-avatar avatar-delphine">D</span><span>Delphine</span></button>
+          <button class="member" data-member="Olivia"><span class="member-avatar avatar-olivia">O</span><span>Olivia</span></button>
+          <button class="member" data-member="Amélie"><span class="member-avatar avatar-amelie">A</span><span>Amélie</span></button>
+        </div>
+        <div class="invite-panel">
+          <div><span>Code d'invitation du foyer</span><strong id="familyInviteCode">Chargement…</strong></div>
+          <button type="button" id="copyInviteCode">Copier</button>
+        </div>
+
+        <div class="section-heading">
+          <h2>Le résumé familial</h2>
+          <span class="tiny-label">APERÇU</span>
+        </div>
+        <div class="summary-grid">
+          <button class="summary-card shopping-card" data-go="shopping">
+            <span class="card-icon">🛒</span>
+            <span class="summary-number" id="shoppingSummaryCount">0</span>
+            <span class="summary-label">Articles à acheter</span>
+            <span class="card-link">Voir les courses <span>→</span></span>
+          </button>
+          <button class="summary-card tasks-card" data-go="tasks">
+            <span class="card-icon">✓</span>
+            <span class="summary-number" id="tasksSummaryCount">0</span>
+            <span class="summary-label">Tâches à faire</span>
+            <span class="card-link">Voir les tâches <span>→</span></span>
+          </button>
+        </div>
+
+        <div class="section-heading spaced">
+          <h2>À venir aujourd'hui</h2>
+          <button class="text-button" data-go="calendar">Tout voir</button>
+        </div>
+        <article class="event-card">
+          <div class="event-date"><strong>18</strong><span>HEURE</span></div>
+          <div class="event-detail"><strong>Exemple de rendez-vous</strong><span>Événement familial · À personnaliser</span></div>
+          <span class="event-dot"></span>
+        </article>
+
+        <div class="section-heading spaced">
+          <h2>Au menu</h2>
+          <button class="text-button" data-go="meals">Planning repas</button>
+        </div>
+        <article class="meal-preview">
+          <div class="meal-emoji">🍝</div>
+          <div class="meal-detail"><strong>Repas du soir</strong><span>Exemple de repas · À définir</span></div>
+          <span class="meal-tag">SOIR</span>
+        </article>
+
+        <p class="demo-note"><span>ⓘ</span> Les courses sont partagées entre les membres du foyer. Les repas et le calendrier seront connectés dans les prochaines étapes.</p>
+      </section>
+
+      <section class="view" id="view-shopping">
+        <div class="page-heading"><p class="eyebrow">ENSEMBLE, PLUS SIMPLEMENT</p><h1>Les courses 🛒</h1><p class="muted">La liste partagée de la famille.</p></div>
+        <div class="list-toolbar"><span class="list-count" id="shoppingCount">Aucun article</span><button class="pill-button" id="addShopping">＋ Ajouter</button></div>
+        <form class="add-form hidden" id="shoppingForm"><input id="shoppingInput" type="text" placeholder="Ajouter un article…" maxlength="80" aria-label="Nouvel article"><button type="submit">Ajouter</button></form>
+        <div class="check-list" id="shoppingList"></div>
+        <div class="empty-state shopping-empty" id="shoppingEmpty">
+          <div>🛒</div>
+          <strong>Votre liste est vide</strong>
+          <p>Ajoutez votre premier article pour commencer la liste de courses familiale.</p>
+        </div>
+      </section>
+
+      <section class="view" id="view-meals">
+        <div class="page-heading"><p class="eyebrow">ON SE RÉGALE</p><h1>Les repas 🍽️</h1><p class="muted">Le planning de la semaine familiale.</p></div>
+        <div class="week-switch"><button aria-label="Semaine précédente">‹</button><strong>Cette semaine</strong><button aria-label="Semaine suivante">›</button></div>
+        <div class="meal-day"><div class="day-heading"><strong>Aujourd'hui</strong><span>VENDREDI</span></div><div class="meal-slot"><span class="slot-icon">☀️</span><div><small>MIDI</small><strong>À définir</strong></div><button aria-label="Modifier le repas">＋</button></div><div class="meal-slot"><span class="slot-icon">🌙</span><div><small>SOIR</small><strong>À définir</strong></div><button aria-label="Modifier le repas">＋</button></div></div>
+        <div class="meal-day"><div class="day-heading"><strong>Samedi</strong><span>DEMAIN</span></div><div class="meal-slot"><span class="slot-icon">☀️</span><div><small>MIDI</small><strong>À définir</strong></div><button aria-label="Modifier le repas">＋</button></div><div class="meal-slot"><span class="slot-icon">🌙</span><div><small>SOIR</small><strong>À définir</strong></div><button aria-label="Modifier le repas">＋</button></div></div>
+        <div class="meal-day"><div class="day-heading"><strong>Dimanche</strong><span>WEEK-END</span></div><div class="meal-slot"><span class="slot-icon">☀️</span><div><small>MIDI</small><strong>À définir</strong></div><button aria-label="Modifier le repas">＋</button></div><div class="meal-slot"><span class="slot-icon">🌙</span><div><small>SOIR</small><strong>À définir</strong></div><button aria-label="Modifier le repas">＋</button></div></div>
+        <p class="demo-note">Le planning complet, les recettes et l'envoi des ingrédients aux courses seront développés dans le module Repas.</p>
+      </section>
+
+      <section class="view" id="view-calendar">
+        <div class="page-heading"><p class="eyebrow">TOUTE LA FAMILLE AU MÊME ENDROIT</p><h1>Calendrier 📅</h1><p class="muted">Les rendez-vous et activités de chacun.</p></div>
+        <div class="calendar-month"><button aria-label="Mois précédent">‹</button><strong id="monthName">Novembre 2026</strong><button aria-label="Mois suivant">›</button></div>
+        <div class="calendar-week"><span>LU</span><span>MA</span><span>ME</span><span>JE</span><span>VE</span><span>SA</span><span>DI</span></div>
+        <div class="calendar-days" id="calendarDays"></div>
+        <div class="section-heading spaced"><h2>Prochains événements</h2><button class="pill-button" id="addEvent">＋ Ajouter</button></div>
+        <div class="empty-state"><div>🗓️</div><strong>Votre agenda prendra vie ici</strong><p>Ajoutez les activités, rendez-vous et événements de la famille.</p></div>
+        <p class="demo-note">Calendrier de démonstration. Les événements partagés et les rappels seront connectés à Supabase.</p>
+      </section>
+
+      <section class="view" id="view-tasks">
+        <div class="page-heading"><p class="eyebrow">CHACUN PARTICIPE</p><h1>Les tâches ✓</h1><p class="muted">Les petites choses qui facilitent le quotidien.</p></div>
+        <div class="task-list" id="taskList"></div>
+        <div class="empty-state" id="tasksEmpty"><div>✓</div><strong>Aucune tâche pour le moment</strong><p>Ajoutez une tâche pour commencer votre organisation familiale.</p></div>
+        <form class="add-form task-add-form" id="taskForm"><input id="taskInput" type="text" placeholder="Ajouter une tâche…" maxlength="100" aria-label="Nouvelle tâche"><button type="submit">Ajouter</button></form>
+        <p class="demo-note">Les tâches sont encore enregistrées sur cet appareil. Leur synchronisation familiale sera réalisée dans la prochaine étape.</p>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="Navigation principale">
+      <button class="nav-item active" data-view="home"><span class="nav-icon">⌂</span><span>Accueil</span></button>
+      <button class="nav-item" data-view="shopping"><span class="nav-icon">🛒</span><span>Courses</span></button>
+      <button class="nav-item" data-view="meals"><span class="nav-icon">♨</span><span>Repas</span></button>
+      <button class="nav-item" data-view="calendar"><span class="nav-icon">▦</span><span>Agenda</span></button>
+      <button class="nav-item" data-view="tasks"><span class="nav-icon">✓</span><span>Tâches</span></button>
+    </nav>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
