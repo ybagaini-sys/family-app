@@ -112,3 +112,66 @@ button:disabled{opacity:.6;pointer-events:none}
   .meal-slot-actions { justify-content: flex-start; }
   .meal-slot-actions .meal-action { padding: 8px 10px; font-size: 10px; }
 }
+
+
+/* V1.12.3 — en-tête mobile : marque et commandes sur deux rangées */
+@media (max-width: 480px) {
+  .topbar {
+    height: auto;
+    min-height: 0;
+    padding: calc(env(safe-area-inset-top) + 12px) 16px 14px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px 8px;
+  }
+  .topbar .brand {
+    flex: 1 1 100%;
+    min-width: 0;
+    gap: 10px;
+  }
+  .topbar .brand-mark {
+    flex: 0 0 40px;
+  }
+  .topbar .brand > div:last-child {
+    min-width: 0;
+  }
+  .topbar .brand-name {
+    font-size: 19px;
+    line-height: 1.15;
+    white-space: nowrap;
+  }
+  .topbar .brand-subtitle {
+    font-size: 11px;
+    line-height: 1.25;
+    white-space: normal;
+  }
+  .topbar-actions {
+    flex: 1 1 100%;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .app-version {
+    margin-right: auto;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+  .refresh-button,
+  .logout-button {
+    white-space: nowrap;
+    font-size: 11px;
+    padding: 9px 12px;
+  }
+  .topbar-actions .avatar {
+    flex: 0 0 39px;
+  }
+}
+@media (max-width: 360px) {
+  .topbar { padding-left: 14px; padding-right: 14px; }
+  .topbar-actions { gap: 6px; }
+  .refresh-button, .logout-button { padding: 8px 9px; font-size: 10px; }
+}

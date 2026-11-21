@@ -1,9 +1,9 @@
 // Family-app – Service Worker
-// IMPORTANT : incrémenter CACHE_NAME à chaque livraison (ex. shell-v1.12.2-ios-safe-area).
+// IMPORTANT : incrémenter CACHE_NAME à chaque livraison (ex. shell-v1.12.3-mobile-header).
 // Cette version permet au navigateur de supprimer l'ancien cache et d'activer
 // immédiatement le nouveau service worker.
 
-const CACHE_NAME = "shell-v1.12.2-ios-safe-area";
+const CACHE_NAME = "shell-v1.12.3-mobile-header";
 const APP_SHELL = [
   "./",
   "./index.html",
