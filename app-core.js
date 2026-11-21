@@ -490,7 +490,7 @@ document.getElementById("taskForm").addEventListener("submit", async event => {
       .map(userId => familyMembers.find(member => member.user_id === userId)?.display_name)
       .filter(Boolean);
     await notifyFamily(
-      "Nouvelle tâche familiale",
+      "1 nouvelle tâche",
       assigneeNames.length
         ? `« ${title} » attribuée à ${assigneeNames.join(", ")}.`
         : `« ${title} » a été ajoutée au foyer.`

@@ -3,7 +3,7 @@
 // Cette version permet au navigateur de supprimer l'ancien cache et d'activer
 // immédiatement le nouveau service worker.
 
-const CACHE_NAME = "shell-v1.13.4-canonical-notification-url";
+const CACHE_NAME = "shell-v1.13.5-task-count-notification";
 const APP_SHELL = [
   "./",
   "./index.html",
