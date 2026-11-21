@@ -463,10 +463,205 @@ document.getElementById("taskForm").addEventListener("submit", async event => {
 window.addEventListener("family-app-family-ready", event => {
   initializeShoppingSync(event.detail?.familyId);
   initializeTaskSync(event.detail?.familyId);
+  initializeMealSync(event.detail?.familyId);
 });
 
+// Planning des repas partagé via Supabase.
+let mealFamilyId = null;
+let mealEntries = [];
+let mealMembers = [];
+let mealChannel = null;
+let mealPoll = null;
+let mealWeekOffset = 0;
+let mealLoading = false;
+
+function dateKey(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+function startOfMealWeek(offset = 0) {
+  const date = new Date();
+  date.setHours(12, 0, 0, 0);
+  const weekday = (date.getDay() + 6) % 7;
+  date.setDate(date.getDate() - weekday + offset * 7);
+  return date;
+}
+function formatMealWeek(date) {
+  const end = new Date(date); end.setDate(end.getDate() + 6);
+  const fmt = value => value.toLocaleDateString("fr-CH", { day: "numeric", month: "short" });
+  return `${fmt(date)} – ${fmt(end)} ${end.getFullYear()}`;
+}
+function escapeMealText(value) {
+  return String(value ?? "").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
+}
+async function loadMealEntries() {
+  const bridge = getFamilyBridge();
+  if (!bridge || !mealFamilyId) return;
+  const start = startOfMealWeek(mealWeekOffset);
+  const end = new Date(start); end.setDate(end.getDate() + 6);
+  const { data, error } = await bridge.client.from("meal_entries")
+    .select("id, family_id, meal_date, meal_type, title, notes, is_planned, created_by, updated_at")
+    .eq("family_id", mealFamilyId)
+    .gte("meal_date", dateKey(start)).lte("meal_date", dateKey(end))
+    .order("meal_date", { ascending: true });
+  if (error) throw error;
+  mealEntries = data || [];
+  const ids = mealEntries.map(item => item.id);
+  let attendance = [];
+  if (ids.length) {
+    const result = await bridge.client.from("meal_attendance")
+      .select("meal_entry_id, user_id, is_present")
+      .in("meal_entry_id", ids);
+    if (result.error) throw result.error;
+    attendance = result.data || [];
+  }
+  mealEntries = mealEntries.map(item => ({
+    ...item,
+    absentIds: attendance.filter(row => row.meal_entry_id === item.id && row.is_present === false).map(row => row.user_id)
+  }));
+  renderMealWeek();
+}
+function renderMealWeek() {
+  const target = document.getElementById("mealWeekGrid");
+  if (!target) return;
+  const weekStart = startOfMealWeek(mealWeekOffset);
+  const todayKey = dateKey(new Date());
+  const label = document.getElementById("mealWeekLabel");
+  if (label) label.textContent = mealWeekOffset === 0 ? `Cette semaine · ${formatMealWeek(weekStart)}` : formatMealWeek(weekStart);
+  target.replaceChildren();
+  const weekdays = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(weekStart); date.setDate(date.getDate() + i);
+    const key = dateKey(date);
+    const day = document.createElement("article");
+    day.className = `meal-day${key === todayKey ? " today" : ""}`;
+    const heading = document.createElement("div"); heading.className = "meal-day-heading";
+    const title = document.createElement("strong"); title.textContent = `${weekdays[i]} ${date.toLocaleDateString("fr-CH", { day: "numeric", month: "short" })}`;
+    const tag = document.createElement("span"); tag.textContent = key === todayKey ? "AUJOURD’HUI" : (i >= 5 ? "WEEK-END" : "");
+    heading.append(title, tag); day.append(heading);
+    ["lunch", "dinner"].forEach(type => {
+      const entry = mealEntries.find(item => item.meal_date === key && item.meal_type === type);
+      const slot = document.createElement("div"); slot.className = "meal-slot";
+      const icon = document.createElement("span"); icon.className = "slot-icon"; icon.textContent = type === "lunch" ? "☀️" : "🌙";
+      const content = document.createElement("div"); content.className = "meal-slot-content";
+      const small = document.createElement("small"); small.textContent = type === "lunch" ? "MIDI" : "SOIR";
+      const mealTitle = document.createElement("strong");
+      mealTitle.textContent = !entry ? "À définir" : (entry.is_planned === false ? "Aucun repas prévu" : entry.title);
+      content.append(small, mealTitle);
+      const actions = document.createElement("div"); actions.className = "meal-slot-actions";
+      const action = (text, cls, fn) => { const b = document.createElement("button"); b.type = "button"; b.className = `meal-action ${cls || ""}`; b.textContent = text; b.addEventListener("click", fn); return b; };
+      if (!entry) {
+        actions.append(action("＋ Repas", "", () => editMeal(null, key, type)), action("Non prévu", "", () => setMealNotPlanned(null, key, type)));
+      } else {
+        actions.append(action(entry.is_planned === false ? "＋ Prévoir" : "Modifier", "", () => editMeal(entry, key, type)));
+        actions.append(action("×", "danger", () => deleteMeal(entry)));
+      }
+      slot.append(icon, content, actions);
+      if (entry && entry.is_planned !== false) {
+        const presence = document.createElement("div"); presence.className = "meal-presence";
+        const caption = document.createElement("span"); caption.className = "meal-presence-label"; caption.textContent = "Absences (touchez un membre pour le signaler)"; presence.append(caption);
+        mealMembers.forEach(member => {
+          const absent = entry.absentIds.includes(member.user_id);
+          const person = document.createElement("button"); person.type = "button";
+          person.className = `meal-person${absent ? " absent" : ""}`;
+          person.setAttribute("aria-pressed", absent ? "true" : "false");
+          const dot = document.createElement("span"); dot.className = "presence-dot";
+          const name = document.createElement("span"); name.textContent = `${member.display_name}${absent ? " · absent" : ""}`;
+          person.append(dot, name);
+          person.addEventListener("click", () => toggleMealAbsence(entry, member.user_id, !absent));
+          presence.append(person);
+        });
+        slot.append(presence);
+      }
+      day.append(slot);
+    });
+    target.append(day);
+  }
+}
+async function editMeal(entry, mealDate, mealType) {
+  const current = entry && entry.is_planned !== false ? entry.title : "";
+  const title = prompt(entry ? "Modifier le repas prévu :" : "Quel repas est prévu ?", current);
+  if (title === null) return;
+  const clean = title.trim();
+  if (!clean) { showToast("Indique un repas ou annule la modification"); return; }
+  const bridge = getFamilyBridge();
+  const payload = { family_id: mealFamilyId, meal_date: mealDate, meal_type: mealType, title: clean, is_planned: true, created_by: bridge.getCurrentUser()?.id };
+  let query;
+  if (entry) query = bridge.client.from("meal_entries").update({ title: clean, is_planned: true }).eq("id", entry.id);
+  else query = bridge.client.from("meal_entries").insert(payload);
+  const { error } = await query;
+  if (error) { console.error(error); showToast("Enregistrement du repas impossible"); return; }
+  await loadMealEntries(); showToast("Planning des repas actualisé");
+}
+async function setMealNotPlanned(entry, mealDate, mealType) {
+  if (!confirm("Indiquer qu’aucun repas n’est prévu à ce moment ?")) return;
+  const bridge = getFamilyBridge();
+  let error;
+  if (entry) {
+    const result = await bridge.client.from("meal_attendance").delete().eq("meal_entry_id", entry.id);
+    if (result.error) { showToast("Impossible de mettre à jour les présences"); return; }
+    const updated = await bridge.client.from("meal_entries").update({ title: "Aucun repas prévu", is_planned: false }).eq("id", entry.id);
+    error = updated.error;
+  } else {
+    const result = await bridge.client.from("meal_entries").insert({ family_id: mealFamilyId, meal_date: mealDate, meal_type: mealType, title: "Aucun repas prévu", is_planned: false, created_by: bridge.getCurrentUser()?.id });
+    error = result.error;
+  }
+  if (error) { console.error(error); showToast("Modification impossible"); return; }
+  await loadMealEntries(); showToast("Repas marqué comme non prévu");
+}
+async function deleteMeal(entry) {
+  if (!confirm("Supprimer ce repas du planning ?")) return;
+  const { error } = await getFamilyBridge().client.from("meal_entries").delete().eq("id", entry.id);
+  if (error) { console.error(error); showToast("Suppression impossible"); return; }
+  await loadMealEntries(); showToast("Repas supprimé du planning");
+}
+async function toggleMealAbsence(entry, userId, absent) {
+  const bridge = getFamilyBridge();
+  const buttonUser = userId;
+  let result;
+  if (absent) {
+    result = await bridge.client.from("meal_attendance").upsert({ meal_entry_id: entry.id, family_id: mealFamilyId, user_id: buttonUser, is_present: false }, { onConflict: "meal_entry_id,user_id" });
+  } else {
+    result = await bridge.client.from("meal_attendance").delete().eq("meal_entry_id", entry.id).eq("user_id", buttonUser);
+  }
+  if (result.error) { console.error(result.error); showToast("Modification de présence impossible"); return; }
+  await loadMealEntries();
+  const member = mealMembers.find(item => item.user_id === userId);
+  showToast(`${member?.display_name || "Membre"} : ${absent ? "absent" : "présent"}`);
+}
+async function initializeMealSync(familyId) {
+  const bridge = getFamilyBridge();
+  if (!bridge || !familyId || mealLoading) return;
+  if (mealFamilyId === familyId) { try { await loadMealEntries(); } catch (error) { console.error(error); showToast("Actualisation des repas impossible"); } return; }
+  mealLoading = true;
+  try {
+    if (mealChannel) { await bridge.client.removeChannel(mealChannel); mealChannel = null; }
+    if (mealPoll) { clearInterval(mealPoll); mealPoll = null; }
+    mealFamilyId = familyId;
+    const { data: membersData, error: membersError } = await bridge.client.from("family_members")
+      .select("user_id, display_name").eq("family_id", familyId).order("joined_at", { ascending: true });
+    if (membersError) throw membersError;
+    mealMembers = membersData || [];
+    await loadMealEntries();
+    mealChannel = bridge.client.channel(`family-meals-${familyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "meal_entries", filter: `family_id=eq.${familyId}` }, () => loadMealEntries().catch(error => console.warn("Realtime repas:", error)))
+      .on("postgres_changes", { event: "*", schema: "public", table: "meal_attendance", filter: `family_id=eq.${familyId}` }, () => loadMealEntries().catch(error => console.warn("Realtime présences:", error)))
+      .subscribe();
+    mealPoll = setInterval(() => loadMealEntries().catch(error => console.warn("Actualisation repas:", error)), 15000);
+  } catch (error) {
+    console.error("Initialisation des repas impossible:", error);
+    mealFamilyId = null;
+    const target = document.getElementById("mealWeekGrid");
+    if (target) target.innerHTML = '<div class="empty-state"><div>⚠️</div><strong>Planning indisponible</strong><p>Vérifiez que la mise à jour SQL Repas a bien été exécutée.</p></div>';
+    showToast("Impossible de charger le planning des repas");
+  } finally { mealLoading = false; }
+}
+document.getElementById("mealPrevWeek").addEventListener("click", () => { mealWeekOffset--; loadMealEntries().catch(error => { console.error(error); showToast("Chargement de la semaine impossible"); }); });
+document.getElementById("mealNextWeek").addEventListener("click", () => { mealWeekOffset++; loadMealEntries().catch(error => { console.error(error); showToast("Chargement de la semaine impossible"); }); });
+
 document.getElementById("addEvent").addEventListener("click", () => showToast("La création d'événements sera ajoutée dans le module Calendrier."));
-document.querySelectorAll(".meal-slot button").forEach(el => el.addEventListener("click", () => showToast("L'édition des repas sera ajoutée dans le module Repas.")));
 function renderCalendar() {
   const target = document.getElementById("calendarDays"); const year = 2026, month = 10;
   const firstDay = new Date(year, month, 1); const offset = (firstDay.getDay() + 6) % 7; const count = new Date(year, month + 1, 0).getDate(); target.innerHTML = "";
@@ -475,6 +670,7 @@ function renderCalendar() {
 }
 renderCalendar(); renderShopping(); renderTasks();
 renderTaskAssigneePicker("Connectez-vous pour charger les membres du foyer.");
+renderMealWeek();
 const today = new Date(); document.getElementById("todayLabel").textContent = today.toLocaleDateString("fr-CH",{weekday:"long",day:"numeric",month:"long"}).toUpperCase();
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   window.addEventListener("load", async () => { try { const registration = await navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" }); await registration.update(); }

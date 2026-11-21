@@ -1,9 +1,9 @@
 // Family-app – Service Worker
-// IMPORTANT : incrémenter CACHE_NAME à chaque livraison (ex. shell-v1.11.1).
+// IMPORTANT : incrémenter CACHE_NAME à chaque livraison (ex. shell-v1.12-repas).
 // Cette version permet au navigateur de supprimer l'ancien cache et d'activer
 // immédiatement le nouveau service worker.
 
-const CACHE_NAME = "shell-v1.11.1";
+const CACHE_NAME = "shell-v1.12-repas";
 const APP_SHELL = [
   "./",
   "./index.html",

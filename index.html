@@ -152,12 +152,10 @@
       </section>
 
       <section class="view" id="view-meals">
-        <div class="page-heading"><p class="eyebrow">ON SE RÉGALE</p><h1>Les repas 🍽️</h1><p class="muted">Le planning de la semaine familiale.</p></div>
-        <div class="week-switch"><button aria-label="Semaine précédente">‹</button><strong>Cette semaine</strong><button aria-label="Semaine suivante">›</button></div>
-        <div class="meal-day"><div class="day-heading"><strong>Aujourd'hui</strong><span>VENDREDI</span></div><div class="meal-slot"><span class="slot-icon">☀️</span><div><small>MIDI</small><strong>À définir</strong></div><button aria-label="Modifier le repas">＋</button></div><div class="meal-slot"><span class="slot-icon">🌙</span><div><small>SOIR</small><strong>À définir</strong></div><button aria-label="Modifier le repas">＋</button></div></div>
-        <div class="meal-day"><div class="day-heading"><strong>Samedi</strong><span>DEMAIN</span></div><div class="meal-slot"><span class="slot-icon">☀️</span><div><small>MIDI</small><strong>À définir</strong></div><button aria-label="Modifier le repas">＋</button></div><div class="meal-slot"><span class="slot-icon">🌙</span><div><small>SOIR</small><strong>À définir</strong></div><button aria-label="Modifier le repas">＋</button></div></div>
-        <div class="meal-day"><div class="day-heading"><strong>Dimanche</strong><span>WEEK-END</span></div><div class="meal-slot"><span class="slot-icon">☀️</span><div><small>MIDI</small><strong>À définir</strong></div><button aria-label="Modifier le repas">＋</button></div><div class="meal-slot"><span class="slot-icon">🌙</span><div><small>SOIR</small><strong>À définir</strong></div><button aria-label="Modifier le repas">＋</button></div></div>
-        <p class="demo-note">Le planning complet, les recettes et l'envoi des ingrédients aux courses seront développés dans le module Repas.</p>
+        <div class="page-heading"><p class="eyebrow">ON SE RÉGALE</p><h1>Les repas 🍽️</h1><p class="muted">Un planning prévisionnel, modifiable à tout moment.</p></div>
+        <div class="week-switch" id="mealWeekSwitch"><button type="button" id="mealPrevWeek" aria-label="Semaine précédente">‹</button><strong id="mealWeekLabel">Cette semaine</strong><button type="button" id="mealNextWeek" aria-label="Semaine suivante">›</button></div>
+        <div id="mealWeekGrid" class="meal-week-grid"><div class="empty-state"><div>🍽️</div><strong>Chargement du planning…</strong><p>Récupération des repas de la famille.</p></div></div>
+        <p class="demo-note">Les repas indiquent ce qui est normalement prévu. Vous pouvez les modifier à tout moment. Les absences sont individuelles et ne nécessitent aucune justification.</p>
       </section>
 
       <section class="view" id="view-calendar">
