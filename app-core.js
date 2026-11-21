@@ -89,6 +89,26 @@ function getFamilyBridge() {
   return window.familyAppSupabase || null;
 }
 
+// Envoi des notifications familiales. L'échec push ne doit jamais annuler
+// une opération déjà enregistrée dans Supabase.
+async function notifyFamily(title, body, url = "./?view=tasks") {
+  const bridge = getFamilyBridge();
+  if (!bridge?.client || !bridge.getCurrentUser?.()) return;
+  try {
+    const { data, error } = await bridge.client.functions.invoke(
+      "send-family-notification",
+      { body: { title, body, url } }
+    );
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    console.info("Notification familiale traitée:", data);
+    return data;
+  } catch (error) {
+    console.warn("Notification non envoyée (l'action reste enregistrée):", error);
+    return null;
+  }
+}
+
 async function ensureShoppingList(client, familyId) {
   const { data: existing, error: readError } = await client
     .from("shopping_lists")
@@ -401,7 +421,14 @@ function renderTasks() {
         completed_at: done ? new Date().toISOString() : null
       }).eq("id", task.id);
       if (error) { check.checked = !done; showToast("Modification impossible"); console.error(error); }
-      else { await loadFamilyTasks(); showToast(done ? "Tâche terminée" : "Tâche remise à faire"); }
+      else {
+        await notifyFamily(
+          done ? "Tâche terminée" : "Tâche remise à faire",
+          `« ${task.title} » a été ${done ? "terminée" : "remise à faire"}.`
+        );
+        await loadFamilyTasks();
+        showToast(done ? "Tâche terminée" : "Tâche remise à faire");
+      }
       check.disabled = false;
     });
     const info = document.createElement("div"); info.className = "task-info";
@@ -414,6 +441,7 @@ function renderTasks() {
       if (!confirm(`Supprimer la tâche « ${task.title} » ?`)) return;
       const { error } = await getFamilyBridge().client.from("tasks").delete().eq("id", task.id);
       if (error) { showToast("Suppression impossible"); console.error(error); return; }
+      await notifyFamily("Tâche supprimée", `La tâche « ${task.title} » a été supprimée.`);
       await loadFamilyTasks(); showToast("Tâche supprimée");
     }));
     list.append(row);
@@ -450,6 +478,15 @@ document.getElementById("taskForm").addEventListener("submit", async event => {
         throw assignError;
       }
     }
+    const assigneeNames = selected
+      .map(userId => familyMembers.find(member => member.user_id === userId)?.display_name)
+      .filter(Boolean);
+    await notifyFamily(
+      "Nouvelle tâche familiale",
+      assigneeNames.length
+        ? `« ${title} » attribuée à ${assigneeNames.join(", ")}.`
+        : `« ${title} » a été ajoutée au foyer.`
+    );
     input.value = "";
     document.querySelectorAll('input[name="taskAssignee"]').forEach(el => { el.checked = false; });
     await loadFamilyTasks();
