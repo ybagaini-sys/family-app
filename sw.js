@@ -3,7 +3,7 @@
 // Cette version permet au navigateur de supprimer l'ancien cache et d'activer
 // immédiatement le nouveau service worker.
 
-const CACHE_NAME = "shell-v1.13.2-task-push";
+const CACHE_NAME = "shell-v1.13.3-notification-link";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -87,9 +87,11 @@ self.addEventListener("push", event => {
 
 self.addEventListener("notificationclick", event => {
   event.notification.close();
-  const target = event.notification.data && event.notification.data.url
+  const rawTarget = event.notification.data && event.notification.data.url
     ? event.notification.data.url
     : "./";
+  // GitHub Pages publie cette application sous /family-app/ et non à la racine du domaine.
+  const target = new URL(rawTarget, self.registration.scope).href;
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
       for (const client of list) {

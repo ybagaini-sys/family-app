@@ -91,13 +91,14 @@ function getFamilyBridge() {
 
 // Envoi des notifications familiales. L'échec push ne doit jamais annuler
 // une opération déjà enregistrée dans Supabase.
-async function notifyFamily(title, body, url = "./?view=tasks") {
+async function notifyFamily(title, body, url = null) {
+  const notificationUrl = new URL(url || "./?view=tasks", window.location.href).href;
   const bridge = getFamilyBridge();
   if (!bridge?.client || !bridge.getCurrentUser?.()) return;
   try {
     const { data, error } = await bridge.client.functions.invoke(
       "send-family-notification",
-      { body: { title, body, url } }
+      { body: { title, body, url: notificationUrl } }
     );
     if (error) throw error;
     if (data?.error) throw new Error(data.error);
